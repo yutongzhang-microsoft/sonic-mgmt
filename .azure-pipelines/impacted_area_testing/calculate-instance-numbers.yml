@@ -32,6 +32,7 @@ steps:
 
 - task: AzureCLI@2
   displayName: "Calculate instance number"
+  continueOnError: false
   inputs:
     azureSubscription: "SONiC-Automation"
     scriptType: 'bash'
