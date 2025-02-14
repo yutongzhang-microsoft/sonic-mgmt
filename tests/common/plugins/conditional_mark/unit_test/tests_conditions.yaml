@@ -1,0 +1,25 @@
+test_conditional_mark.py:
+  xfail:
+    reason: "Xfail test_conditional_mark.py"
+    conditions:
+      - "asic_type in ['mellanox']"
+  skip:
+    reason: "Skip test_conditional_mark.py"
+    conditions:
+      - "asic_type in ['mellanox']"
+
+test_conditional_mark.py::test_mark:
+  skip:
+    reason: "Skip test_conditional_mark.py::test_mark"
+    conditions:
+      - "topo_type in ['t0']"
+
+test_conditional_mark.py::test_mark_1:
+  xfail:
+    reason: "Xfail test_conditional_mark.py::test_mark_1"
+    conditions:
+      - "asic_type in ['vs']"
+  skip:
+    reason: "Skip test_conditional_mark.py::test_mark_1"
+    conditions:
+      - "asic_type in ['mellanox']"
