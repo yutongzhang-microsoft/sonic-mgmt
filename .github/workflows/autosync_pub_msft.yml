@@ -1,0 +1,77 @@
+name: AutoSync
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+#parameters:
+#  - name: SychJobs
+#    type: object
+#    default:
+#      Chassis_202405:
+#        SOURCE_REPO: "https://github.com/sonic-net/sonic-mgmt.git"
+#        SOURCE_BRANCH: "202405"
+#        TARGET_BRANCH: "202405"
+#        PUSH_BRANCH: "202405"
+#      AI_202412:
+#        SOURCE_REPO: "https://github.com/sonic-net/sonic-mgmt.git"
+#        SOURCE_BRANCH: "202412"
+#        TARGET_BRANCH: "202412"
+#        PUSH_BRANCH: "202412"
+#      test_master:
+#        SOURCE_REPO: "https://github.com/sonic-net/sonic-mgmt.git"
+#        SOURCE_BRANCH: "master"
+#        TARGET_BRANCH: "master"
+#        PUSH_BRANCH: "master"
+#    displayName: "Branches to sync and merge"
+
+
+jobs:
+  sync-and-push:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Prepare git
+        run: |
+          set -ex
+
+          echo "=== Prepare git branchs for merge ==="
+          git config --global user.email "sonicbld@microsoft.com"
+          git config --global user.name "Sonic Build Admin"
+
+          git fetch origin
+
+          echo "Add remote for source repo."
+          git remote add source https://github.com/sonic-net/sonic-mgmt.git
+          git fetch source
+
+          echo "Checkout a temp branch 'foo', so that we can cleanup the branches to be worked on."
+          git checkout -b foo origin/master || true
+          git branch -D master || true
+
+          echo "Checkout the target branch to be worked on."
+          git checkout -b master origin/master
+          git branch -D foo || true  # Cleanup the temp 'foo' branch.
+
+      - name: Merge branch
+        run: |
+          set -ex
+
+          echo "=== Sync source branch to target branch ==="
+          git merge --no-edit source/master
+
+      - name: Push branch
+        run: |
+          set -ex
+
+          echo "=== Push the merged branch to remote ==="
+          git push origin master:master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
