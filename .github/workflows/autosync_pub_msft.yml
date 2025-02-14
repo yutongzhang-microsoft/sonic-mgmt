@@ -65,7 +65,7 @@ jobs:
           set -ex
 
           echo "=== Sync source branch to target branch ==="
-          git merge --no-edit source/master
+          git merge --allow-unrelated-histories --no-edit source/master
 
       - name: Push branch
         run: |
