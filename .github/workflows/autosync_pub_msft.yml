@@ -1,5 +1,5 @@
 name: AutoSync
-  
+
 on:
   push:
     branches:
@@ -31,6 +31,7 @@ jobs:
           sudo rm -rf sonic-mgmt
           # git clone https://github.com/yutongzhang/sonic-mgmt.msft  # dst
           git clone https://github.com/yutongzhang-microsoft/sonic-mgmt  # dst
+
           # pushd sonic-mgmt.msft
           pushd sonic-mgmt
           git remote add head https://github.com/sonic-net/sonic-mgmt   # src
@@ -40,7 +41,7 @@ jobs:
         run: |
           set -ex
 
-          # branches="202405 202412"
+          # branches="master"
           # pushd sonic-mgmt.msft
           branches="201911 "
           pushd sonic-mgmt
@@ -56,7 +57,7 @@ jobs:
             head_commit=$(git log -n 1 --format=%H head/$branch_head)
             git log --format=%H origin/$branch_base | grep $head_commit && continue
 
-
+            git checkout -b foo origin/$branch_base || true
             git branch -D $branch_base || true
             git checkout -b $branch_base --track origin/$branch_base
 
@@ -110,6 +111,6 @@ jobs:
               gh pr edit $url -b "$body" --add-label automerge
             fi
           done
-          
+
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
