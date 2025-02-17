@@ -32,7 +32,7 @@ jobs:
           # git clone https://github.com/yutongzhang/sonic-mgmt.msft  # dst
           git clone https://github.com/yutongzhang-microsoft/sonic-mgmt  # dst
           # pushd sonic-mgmt.msft
-          pushd sonic-mgmt
+          pushd sonic-mgmt.msft
           git remote add head https://github.com/sonic-net/sonic-mgmt   # src
           git fetch head
 
@@ -42,7 +42,7 @@ jobs:
 
           # branches="202405 202412"
           # pushd sonic-mgmt.msft
-          branches="201911 "
+          branches="master "
           pushd sonic-mgmt
           [ -z "$branches" ] && exit 1
 
@@ -99,7 +99,7 @@ jobs:
             body='```<br>'$body'<br>```'
 
             # push code
-            git push https://github.com/mssonicbld/sonic-mgmt HEAD:sonicbld/$branch_base-merge -f
+            git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/mssonicbld/sonic-mgmt HEAD:sonicbld/$branch_base-merge -f
 
             # create PR
             url_=$(gh pr create -R yutongzhang-microsoft/sonic-mgmt -H mssonicbld:sonicbld/$branch_base-merge -B $branch_base -t "[code sync] Merge code from sonic-net/sonic-mgmt:$branch_head to $branch_base" -b "$body" -l automerge 2>&1; rc=$?)
@@ -109,5 +109,3 @@ jobs:
               gh pr edit $url -b "$body" --add-label automerge
             fi
           done
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
