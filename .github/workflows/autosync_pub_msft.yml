@@ -74,7 +74,7 @@ jobs:
 
             if ! git status | grep "^nothing to commit, working tree clean";then
               # code conflict
-              git add $branch_base
+              git add .
 
               if git status | grep "You have unmerged paths";then
                 continue #TODO add alert
