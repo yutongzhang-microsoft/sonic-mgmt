@@ -42,7 +42,7 @@ jobs:
 
           # branches="202405 202412"
           # pushd sonic-mgmt.msft
-          branches="master "
+          branches="201911 "
           pushd sonic-mgmt
           [ -z "$branches" ] && exit 1
 
