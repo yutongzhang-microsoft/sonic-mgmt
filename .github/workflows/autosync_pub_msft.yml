@@ -32,7 +32,7 @@ jobs:
           # git clone https://github.com/yutongzhang/sonic-mgmt.msft  # dst
           git clone https://github.com/yutongzhang-microsoft/sonic-mgmt  # dst
           # pushd sonic-mgmt.msft
-          pushd sonic-mgmt.msft
+          pushd sonic-mgmt
           git remote add head https://github.com/sonic-net/sonic-mgmt   # src
           git fetch head
 
