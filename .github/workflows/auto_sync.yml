@@ -25,10 +25,10 @@ jobs:
           git config --global user.name "Sonic Automation"
           git config --global pull.rebase false
 
-          sudo rm -rf sonic-mgmt.msft
+          sudo rm -rf sonic-mgmt
           git clone https://github.com/yutongzhang-microsoft/sonic-mgmt  # dst repo
 
-          pushd sonic-mgmt.msft
+          pushd sonic-mgmt
           git remote add head https://github.com/sonic-net/sonic-mgmt   # src repo
           git fetch head
 
@@ -36,8 +36,8 @@ jobs:
         run: |
           set -ex
 
-          branches="202405 202412"
-          pushd sonic-mgmt.msft
+          branches="master"
+          pushd sonic-mgmt
 
           [ -z "$branches" ] && exit 1
 
@@ -73,8 +73,8 @@ jobs:
               if git status | grep "You have unmerged paths";then
                 continue #TODO add alert
                 CommitID=$(git log $prehead..HEAD --merge --pretty=format:'%H'  | tail -n 1)
-                description="<h1>Please merge $CommitID into sonic-mgmt.msft.Do not Cherry-pick!!!</h1>"
-                description="code conflict: sonic-net/sonic-mgmt:$branch_head -> Azure/sonic-mgmt.msft:$branch_base<br>"
+                description="<h1>Please merge $CommitID into sonic-mgmt.Do not Cherry-pick!!!</h1>"
+                description="code conflict: sonic-net/sonic-mgmt:$branch_head -> yutongzhang-microsoft/sonic-mgmt:$branch_base<br>"
                 description+=$(git log $prehead..HEAD --merge --pretty=format:'%h -%d %s (%cs) [%aN]')
                 # assign="Gen-Hwa Chiang <gechiang@microsoft.com>"
                 # update work-item
