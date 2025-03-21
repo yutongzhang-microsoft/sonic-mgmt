@@ -1,0 +1,13 @@
+###############################################################################
+# TestScriptsCollection TABLE SETUP                                           #
+# 1. Create a TestScriptsCollection table to record all test scripts          #
+# 2. Add a JSON mapping for the table                                         #
+###############################################################################
+.create table TestScriptsCollection (TestScript: string, Topology: string,
+                            ScanTime: datetime, UploadTime: datetime, TrackId: string)
+
+.create table TestScriptsCollection ingestion json mapping 'TestScriptsCollectionMapping' @'[{"column":"TestScript","Properties":{"path":"$.testscript"}},'
+                                                                                '{"column":"Topology","Properties":{"path":"$.topology"}},'
+                                                                                '{"column":"ScanTime","Properties":{"path":"$.scantime"}},'
+                                                                                '{"column":"UploadTime","Properties":{"path":"$.uploadtime"}},'
+                                                                                '{"column":"TrackId","Properties":{"path":"$.trackid"}}]'
