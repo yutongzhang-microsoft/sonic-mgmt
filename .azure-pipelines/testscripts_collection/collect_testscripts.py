@@ -1,8 +1,8 @@
 import sys
 import os
 import re
-import ast
 import logging
+import subprocess
 from natsort import natsorted
 
 def collect_all_scripts():
@@ -29,28 +29,38 @@ def collect_all_scripts():
         script_name = s[len(location) + 1:]
         try:
             with open(s, 'r') as script:
-                tree = ast.parse(script.read(), filename=s)
-
-                for node in ast.walk(tree):
-                    if isinstance(node, ast.ClassDef) and node.name.startswith("Test"):
-                        for item in node.body:
-                            if isinstance(item, ast.FunctionDef) and item.name.startswith("test_"):
-                                test_cases.append(f"{script_name}::{node.name}::{item.name}")
-                    elif isinstance(node, ast.FunctionDef) and node.name.startswith("test_"):
-                        test_cases.append(f"{script_name}::{node.name}")
                 # Get topology type of script from mark `pytest.mark.topology`
-                # match = pattern.search(script.read())
-                # if match:
-                #     result = {
-                #         "testscript": script_name,
-                #         "topology": match.group(1)
-                #     }
-                #     test_scripts.append(result)
+                match = pattern.search(script.read())
+                if match:
+                    topology = match.group(1)
+                else:
+                    topology = None
+
+
+                command = [
+                    "python3", "-m", "pytest", f"{s}",
+                    "--inventory", "../ansible/veos_vtb", "--host-pattern", "all",
+                    "--testbed_file", "../ansible/vtestbed.yaml", "--testbed", "vms-kvm-t0",
+                    "--ignore", "saitests", "--ignore", "ptftests", "--ignore", "acstests",
+                    "--ignore", "scripts", "--ignore", "sai_qualify", "--ignore", "common",
+                    "--ignore-conditional-mark", "--color=no", "--collect-only",
+                    "--continue-on-collection-errors", "--disable-warnings", "--capture=no", "-q"
+                ]
+                result = subprocess.run(command, capture_output=True, text=True)
+
+                output = result.stdout
+                test_case_lines = re.findall(r'tests/(.*)', output)
+
+                for test_case in test_case_lines:
+                    result = {
+                        "testcase": test_case,
+                        "topology": topology
+                    }
+                    test_cases.append(result)
+
         except Exception as e:
             logging.error('Failed to load script {}, error {}'.format(s, e))
     print(test_cases)
     return test_cases
-
-
 
 collect_all_scripts()
