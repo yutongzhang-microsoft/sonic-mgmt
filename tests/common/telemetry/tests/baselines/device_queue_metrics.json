@@ -1,0 +1,6 @@
+{
+  "description": "Expected serialized mock reporter records for DeviceQueueMetrics",
+  "expected_records": [
+    {"metric_name": "queue.watermark.bytes", "value": 1048576, "labels": {"device.id": "dut-01", "device.queue.id": "UC0"}}
+  ]
+}
