@@ -17,7 +17,7 @@
       2. [4.2.2. Device Labels](#422-device-labels)
       3. [4.2.3. Traffic Generator Labels](#423-traffic-generator-labels)
 5. [5. Configuration and Setup](#5-configuration-and-setup)
-   1. [5.1. TS Reporter Configuration](#51-ts-reporter-configuration)
+   1. [5.1. Reporter Configuration](#51-reporter-configuration)
    2. [5.2. Test Context Configuration](#52-test-context-configuration)
    3. [5.3. Development and Testing Configuration](#53-development-and-testing-configuration)
 
@@ -305,7 +305,7 @@ def test_bgp_convergence(ts_reporter):
 
 ## 5. Configuration and Setup
 
-### 5.1. TS Reporter Configuration
+### 5.1. Reporter Configuration
 
 | Environment Variable          | Purpose                     | Default Value           | Used By    |
 |-------------------------------|-----------------------------|-------------------------|------------|
@@ -321,6 +321,6 @@ def test_bgp_convergence(ts_reporter):
 
 ### 5.3. Development and Testing Configuration
 
-| Environment Variable           | Purpose                          | Default Value | Used By         |
-|--------------------------------|----------------------------------|---------------|-----------------|
-| `SONIC_MGMT_GENERATE_BASELINE` | Generate new test baseline files | Not set       | Test validation |
+| Environment Variable           | Purpose                                           | Default Value | Used By         |
+|--------------------------------|---------------------------------------------------|---------------|-----------------|
+| `SONIC_MGMT_GENERATE_BASELINE` | When set to `1`, generate new test baseline files | Not set       | Test validation |
