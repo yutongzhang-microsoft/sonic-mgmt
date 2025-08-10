@@ -4,7 +4,6 @@
 2. [2. Design Principles](#2-design-principles)
    1. [2.1. OpenTelemetry Compatiable](#21-opentelemetry-compatiable)
    2. [2.2. Extentable with battery included](#22-extentable-with-battery-included)
-   3. [2.3. Automatic Test Context](#23-automatic-test-context)
 3. [3. How to use](#3-how-to-use)
    1. [3.1. Emitting inbox metrics](#31-emitting-inbox-metrics)
    2. [3.2. Customizing Metrics](#32-customizing-metrics)
@@ -14,9 +13,13 @@
 4. [4. Framework-Provided Metrics and Labels](#4-framework-provided-metrics-and-labels)
    1. [4.1. Common Metrics](#41-common-metrics)
    2. [4.2. Common Metric Labels](#42-common-metric-labels)
-   3. [4.3. Auto-Generated Labels](#43-auto-generated-labels)
-   4. [4.4. Device Labels](#44-device-labels)
-   5. [4.5. Traffic Generator Labels](#45-traffic-generator-labels)
+      1. [4.2.1. Auto-Generated Labels](#421-auto-generated-labels)
+      2. [4.2.2. Device Labels](#422-device-labels)
+      3. [4.2.3. Traffic Generator Labels](#423-traffic-generator-labels)
+5. [5. Configuration and Setup](#5-configuration-and-setup)
+   1. [5.1. TS Reporter Configuration](#51-ts-reporter-configuration)
+   2. [5.2. Test Context Configuration](#52-test-context-configuration)
+   3. [5.3. Development and Testing Configuration](#53-development-and-testing-configuration)
 
 ## 1. Overview
 
@@ -83,16 +86,6 @@ All metrics follow OpenTelemetry naming conventions:
 - **Common Metrics**: Framework-provided fixtures for standard metrics groups (e.g., port, PSU, temperature)
 - **Test Metrics**: Test cases can define custom metrics and labels, using `test.params.*`
 - **Pytest Support**: Fixtures provided for easy integration with pytest test cases
-
-### 2.3. Automatic Test Context
-
-The framework automatically detects and includes test-level metadata:
-
-- **Testbed**: From environment configuration (`tbinfo` parameter or environment variables)
-- **Build Version**: From system information (SONiC version detection)
-- **Test Case**: From execution context (pytest function name)
-- **Test File**: From call stack analysis (Python module path)
-- **Job ID**: From test run metadata (CI/CD environment variables)
 
 ## 3. How to use
 
@@ -282,17 +275,17 @@ def test_bgp_convergence(ts_reporter):
 
 ### 4.2. Common Metric Labels
 
-### 4.3. Auto-Generated Labels
+#### 4.2.1. Auto-Generated Labels
 
-| Label             | Value              |
-|-------------------|--------------------|
-| `test.testbed`    | Testbed identifier |
-| `test.os.version` | Build version      |
-| `test.testcase`   | Test case name     |
-| `test.file`       | Test file path     |
-| `test.job.id`     | Job identifier     |
+| Label             | Value              | Source                                                    |
+|-------------------|--------------------|-----------------------------------------------------------|
+| `test.testbed`    | Testbed identifier | `tbinfo['conf-name']`, fallback to `TESTBED_NAME` env var |
+| `test.os.version` | Build version      | `BUILD_VERSION` environment variable                      |
+| `test.testcase`   | Test case name     | `request.node.name`                                       |
+| `test.file`       | Test file path     | `request.node.fspath.strpath` basename                    |
+| `test.job.id`     | Job identifier     | `JOB_ID` environment variable                             |
 
-### 4.4. Device Labels
+#### 4.2.2. Device Labels
 
 | Category   | Labels                                    | Example Values                     |
 |------------|-------------------------------------------|------------------------------------|
@@ -302,7 +295,7 @@ def test_bgp_convergence(ts_reporter):
 | **Queue**  | `device.queue.{id,cast,...}`              | `"UC1"`, `"multicast"`             |
 | **Sensor** | `device.sensor.{id,...}`                  | `"CPU"`                            |
 
-### 4.5. Traffic Generator Labels
+#### 4.2.3. Traffic Generator Labels
 
 | Label                | Description                | Example             |
 |----------------------|----------------------------|---------------------|
@@ -312,91 +305,22 @@ def test_bgp_convergence(ts_reporter):
 
 ## 5. Configuration and Setup
 
-### 5.1. Reporter Endpoint Configuration
+### 5.1. TS Reporter Configuration
 
-The telemetry framework requires configuration of reporting endpoints for different reporter types:
+| Environment Variable          | Purpose                     | Default Value           | Used By    |
+|-------------------------------|-----------------------------|-------------------------|------------|
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | OTLP collector endpoint URL | `http://localhost:4317` | TSReporter |
 
-#### TS Reporter (OpenTelemetry) Configuration
+### 5.2. Test Context Configuration
 
-Configure OpenTelemetry endpoints through environment variables or reporter initialization:
+| Environment Variable | Purpose                                   | Default Value | Used By       |
+|----------------------|-------------------------------------------|---------------|---------------|
+| `TESTBED_NAME`       | Testbed identifier for test.testbed label | `"unknown"`   | All reporters |
+| `BUILD_VERSION`      | Build version for test.os.version label   | `"unknown"`   | All reporters |
+| `JOB_ID`             | Job identifier for test.job.id label      | `"unknown"`   | All reporters |
 
-```python
-# Environment variables (recommended for CI/CD)
-export OTEL_EXPORTER_OTLP_ENDPOINT="http://your-otel-collector:4317"
-export OTEL_EXPORTER_OTLP_HEADERS="authorization=Bearer your-token"
-export OTEL_SERVICE_NAME="sonic-test-telemetry"
+### 5.3. Development and Testing Configuration
 
-# Or programmatic configuration
-ts_reporter = TSReporter(
-    endpoint="http://your-otel-collector:4317",
-    headers={"authorization": "Bearer your-token"},
-    service_name="sonic-test-telemetry"
-)
-```
-
-#### DB Reporter (File Export) Configuration
-
-Configure local file export paths and database connection details:
-
-```python
-# Environment variables
-export TELEMETRY_DB_EXPORT_PATH="/var/log/sonic-tests/telemetry"
-export TELEMETRY_DB_CONNECTION_STRING="postgresql://user:pass@db:5432/telemetry"
-
-# Or programmatic configuration
-db_reporter = DBReporter(
-    export_path="/var/log/sonic-tests/telemetry",
-    db_connection="postgresql://user:pass@db:5432/telemetry"
-)
-```
-
-### 5.2. Auto-Generated Test Context Sources
-
-The framework automatically detects test context from various sources:
-
-#### Testbed Information
-- **Source**: `tbinfo` fixture parameter or environment variables
-- **Detection**: `TB_NAME`, `TESTBED_NAME`, `SONIC_TESTBED` environment variables
-- **Fallback**: System hostname or `"unknown-testbed"`
-
-#### Build Version Detection
-- **Source**: SONiC system information
-- **Detection Methods**:
-  1. `/etc/sonic/sonic_version.yml` file parsing
-  2. `show version` command output
-  3. Docker image labels (`sonic-version`)
-- **Fallback**: `"unknown-version"`
-
-#### Test Case and File Information
-- **Source**: Python execution context and pytest introspection
-- **Detection**:
-  - Test case name: `request.node.name` (pytest fixture)
-  - Test file path: Call stack analysis and module introspection
-  - Test class: `request.cls.__name__` if applicable
-- **Labels**: `test.testcase`, `test.file`, `test.class`
-
-#### Job and CI Information
-- **Source**: CI/CD environment variables
-- **Detection Variables**:
-  - GitHub Actions: `GITHUB_RUN_ID`, `GITHUB_WORKFLOW`
-  - Jenkins: `BUILD_ID`, `JOB_NAME`
-  - Azure DevOps: `BUILD_BUILDID`, `SYSTEM_TEAMPROJECT`
-  - Generic: `CI_JOB_ID`, `BUILD_NUMBER`
-- **Labels**: `test.job.id`, `test.job.name`, `test.ci.system`
-
-#### Configuration Example
-
-```python
-# Override auto-detected context
-custom_context = {
-    "test.testbed": "custom-lab-01",
-    "test.os.version": "sonic-custom-build-123",
-    "test.environment": "staging",
-    "test.job.id": "manual-run-456"
-}
-
-ts_reporter = TSReporter(
-    additional_context=custom_context,
-    auto_detect_context=True  # Still detect other context automatically
-)
-```
+| Environment Variable           | Purpose                          | Default Value | Used By         |
+|--------------------------------|----------------------------------|---------------|-----------------|
+| `SONIC_MGMT_GENERATE_BASELINE` | Generate new test baseline files | Not set       | Test validation |

@@ -64,26 +64,18 @@ class Reporter(ABC):
         """
         context = {}
 
-        if request is not None:
-            # Get test case name from pytest request
-            context['test.testcase'] = request.node.name
-            context['test.file'] = os.path.basename(request.node.fspath.strpath)
+        # Get test case name from pytest request
+        context['test.testcase'] = request.node.name
+        context['test.file'] = os.path.basename(request.node.fspath.strpath)
 
-            # Get test parameters if available
-            if hasattr(request.node, 'callspec') and request.node.callspec:
-                for param_name, param_value in request.node.callspec.params.items():
-                    context[f'test.params.{param_name}'] = str(param_value)
+        # Get test parameters if available
+        if hasattr(request.node, 'callspec') and request.node.callspec:
+            for param_name, param_value in request.node.callspec.params.items():
+                context[f'test.params.{param_name}'] = str(param_value)
 
         if tbinfo is not None:
             # Get testbed name from tbinfo fixture
-            context['test.testbed'] = tbinfo.get('conf-name', 'unknown')
-
-            # Get DUT information if available
-            duts = tbinfo.get('duts', [])
-            if duts:
-                context['test.dut.count'] = str(len(duts))
-                if len(duts) == 1:
-                    context['test.dut.primary'] = duts[0]
+            context['test.testbed'] = tbinfo.get('conf-name', 'unknown') if tbinfo else 'unknown'
 
         # Fallback to environment variables if pytest data not available
         if not context.get('test.testbed'):
@@ -91,16 +83,6 @@ class Reporter(ABC):
 
         context['test.os.version'] = os.environ.get('BUILD_VERSION', 'unknown')
         context['test.job.id'] = os.environ.get('JOB_ID', 'unknown')
-
-        # Fallback to call stack inspection if pytest data not available
-        if not context.get('test.testcase'):
-            for frame_info in inspect.stack():
-                frame = frame_info.frame
-                if 'self' in frame.f_locals and hasattr(frame.f_locals['self'], '_testMethodName'):
-                    context['test.testcase'] = frame.f_locals['self']._testMethodName
-                    if not context.get('test.file'):
-                        context['test.file'] = os.path.basename(frame_info.filename)
-                    break
 
         return context
 
