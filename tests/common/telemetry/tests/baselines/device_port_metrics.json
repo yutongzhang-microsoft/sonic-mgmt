@@ -1,17 +1,98 @@
-{
-  "description": "Expected serialized mock reporter records for DevicePortMetrics",
-  "expected_records": [
-    {"metric_name": "port.tx.util", "value": 45.2, "labels": {"device.id": "spine-01", "device.port.id": "Ethernet8"}},
-    {"metric_name": "port.rx.util", "value": 32.8, "labels": {"device.id": "spine-01", "device.port.id": "Ethernet8"}},
-    {"metric_name": "port.tx.bps", "value": 1200000000, "labels": {"device.id": "spine-01", "device.port.id": "Ethernet8"}},
-    {"metric_name": "port.rx.bps", "value": 1000000000, "labels": {"device.id": "spine-01", "device.port.id": "Ethernet8"}},
-    {"metric_name": "port.tx.ok", "value": 12345678, "labels": {"device.id": "spine-01", "device.port.id": "Ethernet8"}},
-    {"metric_name": "port.rx.ok", "value": 10987654, "labels": {"device.id": "spine-01", "device.port.id": "Ethernet8"}},
-    {"metric_name": "port.tx.err", "value": 3, "labels": {"device.id": "spine-01", "device.port.id": "Ethernet8"}},
-    {"metric_name": "port.rx.err", "value": 5, "labels": {"device.id": "spine-01", "device.port.id": "Ethernet8"}},
-    {"metric_name": "port.tx.drop", "value": 12, "labels": {"device.id": "spine-01", "device.port.id": "Ethernet8"}},
-    {"metric_name": "port.rx.drop", "value": 8, "labels": {"device.id": "spine-01", "device.port.id": "Ethernet8"}},
-    {"metric_name": "port.tx.overrun", "value": 0, "labels": {"device.id": "spine-01", "device.port.id": "Ethernet8"}},
-    {"metric_name": "port.rx.overrun", "value": 1, "labels": {"device.id": "spine-01", "device.port.id": "Ethernet8"}}
-  ]
-}
+[
+  {
+    "metric_name": "port.rx.bps",
+    "value": 1000000000,
+    "labels": {
+      "device.id": "spine-01",
+      "device.port.id": "Ethernet8"
+    }
+  },
+  {
+    "metric_name": "port.rx.drop",
+    "value": 8,
+    "labels": {
+      "device.id": "spine-01",
+      "device.port.id": "Ethernet8"
+    }
+  },
+  {
+    "metric_name": "port.rx.err",
+    "value": 5,
+    "labels": {
+      "device.id": "spine-01",
+      "device.port.id": "Ethernet8"
+    }
+  },
+  {
+    "metric_name": "port.rx.ok",
+    "value": 10987654,
+    "labels": {
+      "device.id": "spine-01",
+      "device.port.id": "Ethernet8"
+    }
+  },
+  {
+    "metric_name": "port.rx.overrun",
+    "value": 1,
+    "labels": {
+      "device.id": "spine-01",
+      "device.port.id": "Ethernet8"
+    }
+  },
+  {
+    "metric_name": "port.rx.util",
+    "value": 32.8,
+    "labels": {
+      "device.id": "spine-01",
+      "device.port.id": "Ethernet8"
+    }
+  },
+  {
+    "metric_name": "port.tx.bps",
+    "value": 1200000000,
+    "labels": {
+      "device.id": "spine-01",
+      "device.port.id": "Ethernet8"
+    }
+  },
+  {
+    "metric_name": "port.tx.drop",
+    "value": 12,
+    "labels": {
+      "device.id": "spine-01",
+      "device.port.id": "Ethernet8"
+    }
+  },
+  {
+    "metric_name": "port.tx.err",
+    "value": 3,
+    "labels": {
+      "device.id": "spine-01",
+      "device.port.id": "Ethernet8"
+    }
+  },
+  {
+    "metric_name": "port.tx.ok",
+    "value": 12345678,
+    "labels": {
+      "device.id": "spine-01",
+      "device.port.id": "Ethernet8"
+    }
+  },
+  {
+    "metric_name": "port.tx.overrun",
+    "value": 0,
+    "labels": {
+      "device.id": "spine-01",
+      "device.port.id": "Ethernet8"
+    }
+  },
+  {
+    "metric_name": "port.tx.util",
+    "value": 45.2,
+    "labels": {
+      "device.id": "spine-01",
+      "device.port.id": "Ethernet8"
+    }
+  }
+]

@@ -1,11 +1,50 @@
-{
-  "description": "Expected serialized mock reporter records for DeviceTemperatureMetrics",
-  "expected_records": [
-    {"metric_name": "temperature.reading", "value": 42.5, "labels": {"device.id": "spine-01", "device.sensor.id": "CPU"}},
-    {"metric_name": "temperature.high_th", "value": 85.0, "labels": {"device.id": "spine-01", "device.sensor.id": "CPU"}},
-    {"metric_name": "temperature.low_th", "value": 0.0, "labels": {"device.id": "spine-01", "device.sensor.id": "CPU"}},
-    {"metric_name": "temperature.crit_high_th", "value": 95.0, "labels": {"device.id": "spine-01", "device.sensor.id": "CPU"}},
-    {"metric_name": "temperature.crit_low_th", "value": -10.0, "labels": {"device.id": "spine-01", "device.sensor.id": "CPU"}},
-    {"metric_name": "temperature.warning", "value": 0.0, "labels": {"device.id": "spine-01", "device.sensor.id": "CPU"}}
-  ]
-}
+[
+  {
+    "metric_name": "temperature.crit_high_th",
+    "value": 95.0,
+    "labels": {
+      "device.id": "spine-01",
+      "device.sensor.id": "CPU"
+    }
+  },
+  {
+    "metric_name": "temperature.crit_low_th",
+    "value": -10.0,
+    "labels": {
+      "device.id": "spine-01",
+      "device.sensor.id": "CPU"
+    }
+  },
+  {
+    "metric_name": "temperature.high_th",
+    "value": 85.0,
+    "labels": {
+      "device.id": "spine-01",
+      "device.sensor.id": "CPU"
+    }
+  },
+  {
+    "metric_name": "temperature.low_th",
+    "value": 0.0,
+    "labels": {
+      "device.id": "spine-01",
+      "device.sensor.id": "CPU"
+    }
+  },
+  {
+    "metric_name": "temperature.reading",
+    "value": 42.5,
+    "labels": {
+      "device.id": "spine-01",
+      "device.sensor.id": "CPU"
+    }
+  },
+  {
+    "metric_name": "temperature.warning",
+    "value": 0.0,
+    "labels": {
+      "device.id": "spine-01",
+      "device.sensor.id": "CPU"
+    }
+  }
+]

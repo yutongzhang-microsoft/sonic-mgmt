@@ -1,7 +1,18 @@
-{
-  "description": "Expected serialized mock reporter records for DeviceFanMetrics",
-  "expected_records": [
-    {"metric_name": "fan.speed", "value": 8500.0, "labels": {"device.id": "leaf-01", "device.fan.id": "Fan-1"}},
-    {"metric_name": "fan.status", "value": 1.0, "labels": {"device.id": "leaf-01", "device.fan.id": "Fan-1"}}
-  ]
-}
+[
+  {
+    "metric_name": "fan.speed",
+    "value": 8500.0,
+    "labels": {
+      "device.id": "leaf-01",
+      "device.fan.id": "Fan-1"
+    }
+  },
+  {
+    "metric_name": "fan.status",
+    "value": 1.0,
+    "labels": {
+      "device.id": "leaf-01",
+      "device.fan.id": "Fan-1"
+    }
+  }
+]

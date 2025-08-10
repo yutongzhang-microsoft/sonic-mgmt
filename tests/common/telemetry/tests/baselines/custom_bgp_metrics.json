@@ -1,8 +1,0 @@
-{
-  "description": "Expected metrics for custom BGP metrics validation",
-  "expected_metrics": {
-    "bgp.convergence_time.port_restart": "convergence_time",
-    "bgp.route.count": "route_count",
-    "bgp.session.flaps": "session_flaps"
-  }
-}

@@ -1,10 +1,42 @@
-{
-  "description": "Expected serialized mock reporter records for DevicePSUMetrics",
-  "expected_records": [
-    {"metric_name": "psu.voltage", "value": 12.1, "labels": {"device.id": "leaf-02", "device.psu.id": "PSU-1"}},
-    {"metric_name": "psu.current", "value": 18.5, "labels": {"device.id": "leaf-02", "device.psu.id": "PSU-1"}},
-    {"metric_name": "psu.power", "value": 222.0, "labels": {"device.id": "leaf-02", "device.psu.id": "PSU-1"}},
-    {"metric_name": "psu.status", "value": 1.0, "labels": {"device.id": "leaf-02", "device.psu.id": "PSU-1"}},
-    {"metric_name": "psu.led", "value": 1.0, "labels": {"device.id": "leaf-02", "device.psu.id": "PSU-1"}}
-  ]
-}
+[
+  {
+    "metric_name": "psu.current",
+    "value": 18.5,
+    "labels": {
+      "device.id": "leaf-02",
+      "device.psu.id": "PSU-1"
+    }
+  },
+  {
+    "metric_name": "psu.led",
+    "value": 1.0,
+    "labels": {
+      "device.id": "leaf-02",
+      "device.psu.id": "PSU-1"
+    }
+  },
+  {
+    "metric_name": "psu.power",
+    "value": 222.0,
+    "labels": {
+      "device.id": "leaf-02",
+      "device.psu.id": "PSU-1"
+    }
+  },
+  {
+    "metric_name": "psu.status",
+    "value": 1.0,
+    "labels": {
+      "device.id": "leaf-02",
+      "device.psu.id": "PSU-1"
+    }
+  },
+  {
+    "metric_name": "psu.voltage",
+    "value": 12.1,
+    "labels": {
+      "device.id": "leaf-02",
+      "device.psu.id": "PSU-1"
+    }
+  }
+]
