@@ -1,7 +1,7 @@
 """
 Tests for telemetry metrics classes using mock reporters.
 
-This module focuses on testing the metric classes themselves and metric collections
+This module focuses on testing the inbox metric collections
 using mock reporters to verify correct value recording, label passing, and
 metric type identification.
 
@@ -20,13 +20,13 @@ from common.telemetry import (
 )
 
 # Import test utilities
-from .common_utils import MockReporter, validate_recorded_metrics
+from .common_utils import validate_recorded_metrics
 
 
-@pytest.fixture
-def mock_reporter(request, tbinfo):
-    """Provide a fresh mock reporter for each test."""
-    return MockReporter(request=request, tbinfo=tbinfo)
+pytestmark = [
+    pytest.mark.topology('any'),
+    pytest.mark.disable_loganalyzer
+]
 
 
 def test_device_port_metrics(mock_reporter):

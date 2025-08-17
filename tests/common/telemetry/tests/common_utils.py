@@ -5,22 +5,10 @@ This module contains shared mock classes and fixtures for testing telemetry
 metrics collections and reporters.
 """
 
-from dataclasses import dataclass
-from typing import Dict, List, Optional
-
 import json
 import os
 
-from common.telemetry.base import Reporter, Metric
-
-
-@dataclass
-class MockMetricRecord:
-    """Mock record of a metric measurement for testing."""
-    metric: 'Metric'
-    value: float
-    labels: Dict[str, str]
-    timestamp: Optional[float] = None
+from common.telemetry.base import Reporter
 
 
 class MockReporter(Reporter):
@@ -28,26 +16,9 @@ class MockReporter(Reporter):
 
     def __init__(self, request=None, tbinfo=None):
         super().__init__("mock", request, tbinfo)
-        self.recorded_metrics: List[MockMetricRecord] = []
         self.report_called = False
 
-    def add_metric(self, metric: 'Metric', value: float, additional_labels: Optional[Dict[str, str]] = None):
-        """Record the metric call for verification."""
-        # Merge all labels (test context + metric labels + additional labels)
-        final_labels = {}
-        final_labels.update(self.test_context)
-        final_labels.update(metric.labels)
-        if additional_labels:
-            final_labels.update(additional_labels)
-
-        record = MockMetricRecord(
-            metric=metric,
-            value=value,
-            labels=final_labels
-        )
-        self.recorded_metrics.append(record)
-
-    def report(self):
+    def _report(self, timestamp: float):
         """Mark that report was called."""
         self.report_called = True
 

@@ -307,9 +307,9 @@ def test_bgp_convergence(ts_reporter):
 
 ### 5.1. Reporter Configuration
 
-| Environment Variable          | Purpose                     | Default Value           | Used By    |
-|-------------------------------|-----------------------------|-------------------------|------------|
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | OTLP collector endpoint URL | `http://localhost:4317` | TSReporter |
+| Environment Variable            | Purpose                     | Default Value           | Used By    |
+|---------------------------------|-----------------------------|-------------------------|------------|
+| `SONIC_MGMT_TS_REPORT_ENDPOINT` | OTLP collector endpoint URL | `http://localhost:4317` | TSReporter |
 
 ### 5.2. Test Context Configuration
 

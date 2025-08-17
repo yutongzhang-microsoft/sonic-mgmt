@@ -8,10 +8,9 @@ OLTP databases for historical analysis, reporting, and trend tracking.
 import json
 import logging
 import os
-import time
 from datetime import datetime
-from typing import Dict, Optional, List, Tuple
-from ..base import Reporter, Metric
+from typing import Optional, List
+from ..base import Reporter
 from ..constants import REPORTER_TYPE_DB
 
 
@@ -37,7 +36,6 @@ class DBReporter(Reporter):
         super().__init__(REPORTER_TYPE_DB, request, tbinfo)
         self.output_dir = output_dir or os.getcwd()
         self.file_prefix = file_prefix or 'telemetry'
-        self.measurements: List[Tuple[Metric, float, Dict[str, str], float]] = []
 
         # Ensure output directory exists
         os.makedirs(self.output_dir, exist_ok=True)
@@ -45,39 +43,18 @@ class DBReporter(Reporter):
         logging.info(f"DBReporter initialized: output_dir={self.output_dir}, "
                      f"file_prefix={self.file_prefix}")
 
-    def add_metric(self, metric: Metric, value: float, additional_labels: Optional[Dict[str, str]] = None):
+    def _report(self, timestamp: float):
         """
-        Add a metric measurement to the reporter buffer.
+        Write all collected metrics to local files.
 
         Args:
-            metric: Metric instance
-            value: Measured value
-            additional_labels: Additional labels for this measurement
+            timestamp: Timestamp for this reporting batch
         """
-        # Merge all labels: test context + metric labels + additional labels
-        final_labels = {**self.test_context}
-        final_labels.update(metric.labels)
-        if additional_labels:
-            final_labels.update(additional_labels)
-
-        timestamp = time.time()
-        self.measurements.append((metric, value, final_labels, timestamp))
-
-        # Log for debugging
-        logging.debug(f"DBReporter: Added {metric.name}={value} labels={final_labels}")
-
-    def report(self):
-        """
-        Write all collected metrics to local files and clear buffer.
-        """
-        if not self.measurements:
-            logging.debug("DBReporter: No measurements to report")
-            return
-
-        logging.info(f"DBReporter: Writing {len(self.measurements)} measurements to file")
+        logging.info(f"DBReporter: Writing {len(self.recorded_metrics)} measurements to file")
 
         # Generate filename with timestamp
-        timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+        timestamp_dt = datetime.fromtimestamp(timestamp)
+        timestamp_str = timestamp_dt.strftime("%Y%m%d_%H%M%S")
         filename = f"{self.file_prefix}_{timestamp_str}.json"
         filepath = os.path.join(self.output_dir, filename)
 
@@ -85,24 +62,24 @@ class DBReporter(Reporter):
         report_data = {
             "metadata": {
                 "reporter_type": self.reporter_type,
-                "timestamp": datetime.now().isoformat(),
+                "timestamp": timestamp_dt.isoformat(),
                 "test_context": self.test_context,
-                "measurement_count": len(self.measurements)
+                "measurement_count": len(self.recorded_metrics)
             },
             "measurements": []
         }
 
         # Convert measurements to JSON-serializable format
-        for metric, value, labels, timestamp in self.measurements:
+        for record in self.recorded_metrics:
             measurement = {
-                "metric_name": metric.name,
-                "metric_type": metric.metric_type,
-                "description": metric.description,
-                "unit": metric.unit,
-                "value": value,
-                "labels": labels,
+                "metric_name": record.metric.name,
+                "metric_type": record.metric.metric_type,
+                "description": record.metric.description,
+                "unit": record.metric.unit,
+                "value": record.value,
+                "labels": record.labels,
                 "timestamp": timestamp,
-                "timestamp_iso": datetime.fromtimestamp(timestamp).isoformat()
+                "timestamp_iso": timestamp_dt.isoformat()
             }
             report_data["measurements"].append(measurement)
 
@@ -111,24 +88,12 @@ class DBReporter(Reporter):
             with open(filepath, 'w') as f:
                 json.dump(report_data, f, indent=2, sort_keys=True)
 
-            logging.info(f"DBReporter: Successfully wrote {len(self.measurements)} "
+            logging.info(f"DBReporter: Successfully wrote {len(self.recorded_metrics)} "
                          f"measurements to {filepath}")
-
-            # Clear measurements after successful write
-            self.measurements.clear()
 
         except Exception as e:
             logging.error(f"DBReporter: Failed to write measurements to {filepath}: {e}")
             raise
-
-    def get_measurement_count(self) -> int:
-        """
-        Get the number of pending measurements.
-
-        Returns:
-            Count of measurements in buffer
-        """
-        return len(self.measurements)
 
     def get_output_files(self) -> List[str]:
         """

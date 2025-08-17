@@ -8,8 +8,14 @@ for the telemetry system including Reporter, Metric, and MetricCollection.
 from abc import ABC, abstractmethod
 from typing import Dict, Optional, List
 from dataclasses import dataclass
-import inspect
 import os
+import time
+from .constants import (
+    METRIC_LABEL_TEST_TESTBED, METRIC_LABEL_TEST_OS_VERSION,
+    METRIC_LABEL_TEST_TESTCASE, METRIC_LABEL_TEST_FILE,
+    METRIC_LABEL_TEST_JOB_ID, METRIC_LABEL_TEST_PARAMS_PREFIX,
+    ENV_TESTBED_NAME, ENV_BUILD_VERSION, ENV_JOB_ID
+)
 
 
 @dataclass
@@ -30,6 +36,23 @@ class MetricDefinition:
         return f"MetricDefinition({self.attribute_name}: {self.metric_name})"
 
 
+@dataclass
+class MetricRecord:
+    """
+    Record of a metric measurement.
+
+    This replaces the tuple-based measurement storage with a type-safe
+    dataclass that provides better code clarity and maintainability.
+    """
+    metric: 'Metric'
+    value: float
+    labels: Dict[str, str]
+
+    def __str__(self) -> str:
+        """Return a readable string representation."""
+        return f"MetricRecord({self.metric.name}={self.value}, labels={len(self.labels)})"
+
+
 class Reporter(ABC):
     """
     Abstract base class for telemetry reporters.
@@ -48,8 +71,8 @@ class Reporter(ABC):
             tbinfo: testbed info fixture data
         """
         self.reporter_type = reporter_type
-        self.metrics = []
         self.test_context = self._detect_test_context(request, tbinfo)
+        self.metrics: List[MetricRecord] = []
 
     def _detect_test_context(self, request=None, tbinfo=None) -> Dict[str, str]:
         """
@@ -65,28 +88,27 @@ class Reporter(ABC):
         context = {}
 
         # Get test case name from pytest request
-        context['test.testcase'] = request.node.name
-        context['test.file'] = os.path.basename(request.node.fspath.strpath)
+        context[METRIC_LABEL_TEST_TESTCASE] = request.node.name
+        context[METRIC_LABEL_TEST_FILE] = os.path.basename(request.node.fspath.strpath)
 
         # Get test parameters if available
         if hasattr(request.node, 'callspec') and request.node.callspec:
             for param_name, param_value in request.node.callspec.params.items():
-                context[f'test.params.{param_name}'] = str(param_value)
+                context[f'{METRIC_LABEL_TEST_PARAMS_PREFIX}.{param_name}'] = str(param_value)
 
         if tbinfo is not None:
             # Get testbed name from tbinfo fixture
-            context['test.testbed'] = tbinfo.get('conf-name', 'unknown') if tbinfo else 'unknown'
+            context[METRIC_LABEL_TEST_TESTBED] = tbinfo.get('conf-name', 'unknown') if tbinfo else 'unknown'
 
         # Fallback to environment variables if pytest data not available
-        if not context.get('test.testbed'):
-            context['test.testbed'] = os.environ.get('TESTBED_NAME', 'unknown')
+        if not context.get(METRIC_LABEL_TEST_TESTBED):
+            context[METRIC_LABEL_TEST_TESTBED] = os.environ.get(ENV_TESTBED_NAME, 'unknown')
 
-        context['test.os.version'] = os.environ.get('BUILD_VERSION', 'unknown')
-        context['test.job.id'] = os.environ.get('JOB_ID', 'unknown')
+        context[METRIC_LABEL_TEST_OS_VERSION] = os.environ.get(ENV_BUILD_VERSION, 'unknown')
+        context[METRIC_LABEL_TEST_JOB_ID] = os.environ.get(ENV_JOB_ID, 'unknown')
 
         return context
 
-    @abstractmethod
     def add_metric(self, metric: 'Metric', value: float, additional_labels: Optional[Dict[str, str]] = None):
         """
         Add a metric measurement to the reporter.
@@ -98,12 +120,49 @@ class Reporter(ABC):
             value: Measured value
             additional_labels: Additional labels for this measurement
         """
-        pass
+        # Merge all labels: test context + metric labels + additional labels
+        final_labels = {**self.test_context}
+        final_labels.update(metric.labels)
+        if additional_labels:
+            final_labels.update(additional_labels)
 
-    @abstractmethod
+        record = MetricRecord(metric=metric, value=value, labels=final_labels)
+        self.metrics.append(record)
+
+    @property
+    def recorded_metrics(self) -> List[MetricRecord]:
+        """Get the recorded metrics."""
+        return self.metrics
+
+    def recorded_metrics_count(self) -> int:
+        """
+        Get the number of pending measurements.
+
+        Returns:
+            Count of measurements in buffer
+        """
+        return len(self.metrics)
+
     def report(self):
         """
         Report all collected metrics to the backend and clear the buffer.
+
+        This method generates the timestamp and calls the subclass-specific _report method.
+        """
+        if not self.recorded_metrics:
+            return
+
+        timestamp = time.time_ns()
+        self._report(timestamp)
+        self.metrics.clear()
+
+    @abstractmethod
+    def _report(self, timestamp: float):
+        """
+        Implementation-specific reporting logic.
+
+        Args:
+            timestamp: Timestamp for this reporting batch
         """
         pass
 
