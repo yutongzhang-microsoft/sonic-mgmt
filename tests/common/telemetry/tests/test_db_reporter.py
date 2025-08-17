@@ -34,8 +34,9 @@ class TestDBReporter:
         """Set up test fixtures."""
         self.temp_dir = tempfile.mkdtemp()
         self.mock_request = Mock()
-        self.mock_request.node.name = "test_db_reporter_example"
+        self.mock_request.node.name = "test_db_reporter"
         self.mock_request.node.fspath.strpath = "/test/path/test_example.py"
+        self.mock_request.node.callspec.params = {}
         self.mock_tbinfo = {"conf-name": "vlab-testbed-01", "duts": ["dut-01"]}
 
     def teardown_method(self):
@@ -93,7 +94,7 @@ class TestDBReporter:
         assert record1["unit"] == "percent"
         assert record1["labels"]["device.id"] == "dut-01"
         assert record1["labels"]["test.iteration"] == "1"
-        assert record1["labels"]["test.testcase"] == "test_db_reporter_example"
+        assert record1["labels"]["test.testcase"] == "test_db_reporter"
         assert "timestamp" in record1
 
         # Verify second record

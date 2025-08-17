@@ -30,7 +30,6 @@ try:
 except ImportError as e:
     OTLP_AVAILABLE = False
     logging.warning(f"OTLP exporter not available, TSReporter will operate in mock mode: {e}")
-    raise e
 
 
 class TSReporter(Reporter):
