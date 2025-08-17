@@ -7,9 +7,8 @@ the OTLP protocol for real-time monitoring, dashboards, and alerting.
 
 import logging
 import os
-import time
 from typing import Dict, Optional, List, Tuple
-from ..base import Reporter, Metric
+from ..base import Reporter
 from ..constants import (
     REPORTER_TYPE_TS, METRIC_TYPE_GAUGE, METRIC_TYPE_COUNTER, METRIC_TYPE_HISTOGRAM,
     ENV_SONIC_MGMT_TS_REPORT_ENDPOINT
@@ -18,16 +17,15 @@ from ..constants import (
 # OTLP exporter imports (optional - graceful degradation if not available)
 try:
     from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import OTLPMetricExporter
-    from opentelemetry.sdk.metrics.export import MetricsData
-    from opentelemetry.sdk.metrics._internal.point import ResourceMetrics as SDKResourceMetrics, ScopeMetrics as SDKScopeMetrics
-    from opentelemetry.sdk.resources import Resource as SDKResource
-    from opentelemetry.proto.metrics.v1.metrics_pb2 import (
-        ResourceMetrics as ProtoResourceMetrics, ScopeMetrics as ProtoScopeMetrics, Metric as OTLPMetric,
-        Gauge, Sum, Histogram as OTLPHistogram,
-        NumberDataPoint, HistogramDataPoint, AggregationTemporality
+    from opentelemetry.sdk.metrics.export import (
+        MetricsData, ResourceMetrics, ScopeMetrics, Metric,
+        Gauge, Sum, Histogram, AggregationTemporality
     )
-    from opentelemetry.proto.resource.v1.resource_pb2 import Resource as ProtoResource
-    from opentelemetry.proto.common.v1.common_pb2 import KeyValue, InstrumentationScope, AnyValue
+    from opentelemetry.sdk.metrics._internal.point import (
+        NumberDataPoint, HistogramDataPoint
+    )
+    from opentelemetry.sdk.resources import Resource
+    from opentelemetry.sdk._internal.scope import InstrumentationScope
     OTLP_AVAILABLE = True
 except ImportError:
     OTLP_AVAILABLE = False
@@ -60,14 +58,13 @@ class TSReporter(Reporter):
         self.endpoint = endpoint or os.environ.get(ENV_SONIC_MGMT_TS_REPORT_ENDPOINT, 'http://localhost:4317')
         self.headers = headers or {}
         self.resource_attributes = resource_attributes or {}
+        self.mock_exporter = None  # For testing compatibility
         self._setup_exporter()
 
     def _setup_exporter(self):
         """
         Set up OTLP metric exporter.
         """
-        self.mock_exporter = None
-
         if not OTLP_AVAILABLE:
             self.exporter = None
             return
@@ -87,7 +84,7 @@ class TSReporter(Reporter):
         Set a mock exporter function for testing.
 
         Args:
-            mock_exporter_func: Function that takes ResourceMetrics as parameter.
+            mock_exporter_func: Function that takes MetricsData as parameter.
                               Set to None to clear mock exporter.
         """
         self.mock_exporter = mock_exporter_func
@@ -102,29 +99,45 @@ class TSReporter(Reporter):
         """
         logging.info(f"TSReporter: Reporting {len(self.recorded_metrics)} measurements")
 
-        if self.mock_exporter or not self.exporter:
-            # Use protobuf objects for mock reporting
-            resource_metrics = self._create_proto_resource_metrics(timestamp)
-            self._export_metrics_mock(resource_metrics)
-        else:
-            # Use SDK objects for real export
-            sdk_resource_metrics = self._create_sdk_resource_metrics(timestamp)
-            self._export_metrics_sdk(sdk_resource_metrics)
+        if not OTLP_AVAILABLE:
+            self._report_mock(timestamp)
+            return
 
-    def _create_proto_resource_metrics(self, timestamp: float) -> Optional[ProtoResourceMetrics]:
+        # Create MetricsData using SDK objects
+        metrics_data = self._create_metrics_data(timestamp)
+        if metrics_data:
+            if self.mock_exporter:
+                # Use mock exporter for testing - but adapt ResourceMetrics for compatibility
+                self._export_metrics_mock(metrics_data)
+            else:
+                self._export_metrics(metrics_data)
+
+    def _report_mock(self, timestamp: float):
         """
-        Create protobuf ResourceMetrics from current measurements for mock reporting.
+        Mock reporting when OTLP is not available.
+
+        Args:
+            timestamp: Timestamp for this reporting batch
+        """
+        for record in self.recorded_metrics:
+            logging.info(f"MOCK TSReporter: {record.metric.name}={record.value} "
+                         f"labels={record.labels} timestamp={timestamp}")
+
+    def _create_metrics_data(self, timestamp: float) -> Optional[MetricsData]:
+        """
+        Create MetricsData using SDK objects from current measurements.
 
         Args:
             timestamp: Timestamp for all measurements in this batch
 
         Returns:
-            ProtoResourceMetrics object or None if crafting fails
+            MetricsData object or None if creation fails
         """
         if not OTLP_AVAILABLE:
             return None
 
-        resource = self._create_proto_resource()
+        # Create SDK Resource
+        resource = self._create_resource()
 
         # Group measurements by metric for efficient batching
         metric_groups = {}
@@ -137,74 +150,37 @@ class TSReporter(Reporter):
                 }
             metric_groups[key]['measurements'].append((record.value, record.labels))
 
-        # Create OTLP metrics
-        otlp_metrics = []
+        # Create SDK metrics
+        sdk_metrics = []
         for (metric_name, metric_type), group in metric_groups.items():
-            otlp_metric = self._create_otlp_metric(group['metric'], group['measurements'], timestamp)
-            if otlp_metric:
-                otlp_metrics.append(otlp_metric)
+            sdk_metric = self._create_sdk_metric(group['metric'], group['measurements'], timestamp)
+            if sdk_metric:
+                sdk_metrics.append(sdk_metric)
 
-        if len(otlp_metrics) == 0:
+        if len(sdk_metrics) == 0:
             return None
 
-        # Create ProtoResourceMetrics message
-        resource_metrics = ProtoResourceMetrics(
-            resource=resource,
-            scope_metrics=[
-                ProtoScopeMetrics(
-                    scope=InstrumentationScope(
-                        name="sonic-test-telemetry",
-                        version="1.0.0"
-                    ),
-                    metrics=otlp_metrics
-                )
-            ]
+        # Create ResourceMetrics with ScopeMetrics
+        scope = InstrumentationScope(
+            name="sonic-test-telemetry",
+            version="1.0.0"
         )
 
-        return resource_metrics
+        scope_metrics = ScopeMetrics(
+            scope=scope,
+            metrics=sdk_metrics,
+            schema_url=""
+        )
 
-    def _create_proto_resource(self) -> ProtoResource:
-        """
-        Create protobuf Resource with attributes.
-        """
-        # Merge test context with resource attributes
-        all_attrs = {
-            "service.name": "sonic-test-telemetry",
-            "service.version": "1.0.0",
-            **self.test_context,
-            **self.resource_attributes
-        }
+        resource_metrics = ResourceMetrics(
+            resource=resource,
+            scope_metrics=[scope_metrics],
+            schema_url=""
+        )
 
-        # Convert to KeyValue pairs
-        attributes = []
-        for key, value in all_attrs.items():
-            attributes.append(KeyValue(key=key, value=AnyValue(string_value=str(value))))
+        return MetricsData(resource_metrics=[resource_metrics])
 
-        return ProtoResource(attributes=attributes)
-
-    def _create_sdk_resource_metrics(self, timestamp: float) -> Optional[SDKResourceMetrics]:
-        """
-        Create SDK ResourceMetrics from current measurements for real export.
-
-        Args:
-            timestamp: Timestamp for all measurements in this batch
-
-        Returns:
-            SDKResourceMetrics object or None if crafting fails
-        """
-        if not OTLP_AVAILABLE:
-            return None
-
-        # Create SDK Resource
-        sdk_resource = self._create_sdk_resource()
-
-        # For now, create an empty SDKResourceMetrics - the actual implementation
-        # would need to create proper SDK metrics objects, but this is complex
-        # and may require significant refactoring. For the immediate fix,
-        # we'll fall back to mock reporting when real export is needed.
-        return None
-
-    def _create_sdk_resource(self) -> SDKResource:
+    def _create_resource(self) -> Resource:
         """
         Create SDK Resource with attributes.
         """
@@ -216,58 +192,63 @@ class TSReporter(Reporter):
             **self.resource_attributes
         }
 
-        return SDKResource.create(all_attrs)
+        return Resource.create(all_attrs)
 
-    def _create_otlp_metric(self, metric: Metric,
-                            measurements: List[Tuple[float, Dict[str, str]]],
-                            timestamp: float) -> Optional[OTLPMetric]:
+    def _create_sdk_metric(self, metric, measurements: List[Tuple[float, Dict[str, str]]],
+                           timestamp: float) -> Optional[Metric]:
         """
-        Create OTLP metric from measurements.
+        Create SDK Metric from measurements.
 
         Args:
-            metric: Metric instance
+            metric: Metric instance from telemetry framework
             measurements: List of (value, labels) tuples
             timestamp: Timestamp for all measurements
 
         Returns:
-            OTLP Metric or None if conversion fails
+            SDK Metric or None if conversion fails
         """
+        timestamp_ns = int(timestamp)
+
         if metric.metric_type == METRIC_TYPE_GAUGE:
             data_points = []
             for value, labels in measurements:
                 data_point = NumberDataPoint(
-                    attributes=self._labels_to_attributes(labels),
-                    time_unix_nano=int(timestamp),
-                    as_double=float(value)
+                    attributes=labels,
+                    start_time_unix_nano=timestamp_ns,
+                    time_unix_nano=timestamp_ns,
+                    value=float(value)
                 )
                 data_points.append(data_point)
 
-            otlp_metric = OTLPMetric(
+            gauge_data = Gauge(data_points=data_points)
+            return Metric(
                 name=metric.name,
                 description=metric.description,
                 unit=metric.unit,
-                gauge=Gauge(data_points=data_points)
+                data=gauge_data
             )
 
         elif metric.metric_type == METRIC_TYPE_COUNTER:
             data_points = []
             for value, labels in measurements:
                 data_point = NumberDataPoint(
-                    attributes=self._labels_to_attributes(labels),
-                    time_unix_nano=int(timestamp),
-                    as_double=float(value)
+                    attributes=labels,
+                    start_time_unix_nano=timestamp_ns,
+                    time_unix_nano=timestamp_ns,
+                    value=float(value)
                 )
                 data_points.append(data_point)
 
-            otlp_metric = OTLPMetric(
+            sum_data = Sum(
+                data_points=data_points,
+                aggregation_temporality=AggregationTemporality.CUMULATIVE,
+                is_monotonic=True
+            )
+            return Metric(
                 name=metric.name,
                 description=metric.description,
                 unit=metric.unit,
-                sum=Sum(
-                    data_points=data_points,
-                    aggregation_temporality=AggregationTemporality.AGGREGATION_TEMPORALITY_CUMULATIVE,
-                    is_monotonic=True
-                )
+                data=sum_data
             )
 
         elif metric.metric_type == METRIC_TYPE_HISTOGRAM:
@@ -275,8 +256,9 @@ class TSReporter(Reporter):
             for value, labels in measurements:
                 # Simple histogram with single bucket for now
                 data_point = HistogramDataPoint(
-                    attributes=self._labels_to_attributes(labels),
-                    time_unix_nano=int(timestamp),
+                    attributes=labels,
+                    start_time_unix_nano=timestamp_ns,
+                    time_unix_nano=timestamp_ns,
                     count=1,
                     sum=float(value),
                     bucket_counts=[1],  # Single bucket
@@ -284,48 +266,28 @@ class TSReporter(Reporter):
                 )
                 data_points.append(data_point)
 
-            otlp_metric = OTLPMetric(
+            histogram_data = Histogram(
+                data_points=data_points,
+                aggregation_temporality=AggregationTemporality.CUMULATIVE
+            )
+            return Metric(
                 name=metric.name,
                 description=metric.description,
                 unit=metric.unit,
-                histogram=OTLPHistogram(
-                    data_points=data_points,
-                    aggregation_temporality=AggregationTemporality.AGGREGATION_TEMPORALITY_CUMULATIVE
-                )
+                data=histogram_data
             )
 
         else:
             return None
 
-        return otlp_metric
-
-    def _labels_to_attributes(self, labels: Dict[str, str]) -> List[KeyValue]:
+    def _export_metrics(self, metrics_data: MetricsData):
         """
-        Convert labels dictionary to OTLP KeyValue attributes.
-        """
-        attributes = []
-        for key, value in labels.items():
-            attributes.append(KeyValue(key=key, value=AnyValue(string_value=str(value))))
-        return attributes
-
-    def _export_metrics_sdk(self, sdk_resource_metrics: Optional[SDKResourceMetrics]):
-        """
-        Export SDK ResourceMetrics using the configured exporter.
+        Export MetricsData using the configured OTLP exporter.
 
         Args:
-            sdk_resource_metrics: SDK ResourceMetrics object to export
+            metrics_data: MetricsData object to export
         """
-        if not sdk_resource_metrics:
-            # Fall back to proto mock reporting when SDK metrics creation fails
-            proto_resource_metrics = self._create_proto_resource_metrics(
-                timestamp=int(time.time() * 1_000_000_000)  # Convert to nanoseconds
-            )
-            self._export_metrics_mock(proto_resource_metrics)
-            return
-
         if self.exporter:
-            # Create MetricsData with the SDK ResourceMetrics
-            metrics_data = MetricsData(resource_metrics=[sdk_resource_metrics])
             result = self.exporter.export(metrics_data)
             if result.name == 'SUCCESS':
                 logging.info("TSReporter: Successfully exported to OTLP endpoint")
@@ -334,32 +296,17 @@ class TSReporter(Reporter):
         else:
             logging.warning("TSReporter: No exporter available")
 
-    def _export_metrics_mock(self, resource_metrics: Optional[ProtoResourceMetrics]):
+    def _export_metrics_mock(self, metrics_data: MetricsData):
         """
-        Export protobuf ResourceMetrics using mock exporter or fallback.
+        Export MetricsData using mock exporter for testing.
 
         Args:
-            resource_metrics: Protobuf ResourceMetrics object to export
+            metrics_data: MetricsData object to export
         """
-        if not resource_metrics:
-            return
-
-        if self.mock_exporter:
-            # Use mock exporter for testing
+        if self.mock_exporter and metrics_data.resource_metrics:
+            # Extract the first ResourceMetrics for compatibility with test expectations
+            resource_metrics = metrics_data.resource_metrics[0]
             self.mock_exporter(resource_metrics)
             logging.info("TSReporter: Successfully exported via mock exporter")
         else:
-            # Fall back to mock reporting
-            self._report_mock_from_resource_metrics(resource_metrics)
-
-    def _report_mock_from_resource_metrics(self, resource_metrics):
-        """
-        Mock reporting from ResourceMetrics when exporter is not available.
-
-        Args:
-            resource_metrics: ResourceMetrics object to mock report
-        """
-        for scope_metric in resource_metrics.scope_metrics:
-            for metric in scope_metric.metrics:
-                logging.info(f"MOCK TSReporter: {metric.name} "
-                             f"description='{metric.description}' unit='{metric.unit}'")
+            logging.warning("TSReporter: No mock exporter available")
