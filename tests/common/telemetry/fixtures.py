@@ -30,10 +30,6 @@ def ts_reporter(request, tbinfo) -> Generator[TSReporter, None, None]:
     # Create TSReporter with test-specific configuration
     reporter = TSReporter(
         endpoint=os.environ.get('OTEL_EXPORTER_OTLP_ENDPOINT'),
-        resource_attributes={
-            "test.framework": "pytest",
-            "test.runner": "sonic-mgmt"
-        },
         request=request,
         tbinfo=tbinfo
     )
