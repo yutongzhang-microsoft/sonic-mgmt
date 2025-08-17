@@ -17,8 +17,24 @@ from .constants import (
     ENV_TESTBED_NAME, ENV_BUILD_VERSION, ENV_JOB_ID
 )
 
+
+@dataclass
+class HistogramRecordData:
+    """
+    Data class for storing histogram record data.
+
+    This class holds the bucket counts and the total count for a histogram
+    measurement, providing a structured way to manage histogram data.
+    """
+    bucket_counts: List[int]
+    total_count: int
+    sum: Optional[float]
+    min: Optional[float]
+    max: Optional[float]
+
+
 # Type alias for metric data that can be either a single value or a list of values
-MetricRecordDataT = Union[float, List[float]]
+MetricRecordDataT = Union[float, HistogramRecordData]
 
 
 @dataclass
@@ -37,6 +53,18 @@ class MetricDefinition:
     def __str__(self) -> str:
         """Return a readable string representation."""
         return f"MetricDefinition({self.attribute_name}: {self.metric_name})"
+
+
+@dataclass
+class MetricDataEntry:
+    """
+    Internal storage entry for metric data with associated labels.
+
+    This stores the metric data along with the labels that apply to it,
+    avoiding the need to parse labels from keys.
+    """
+    data: MetricRecordDataT
+    labels: Dict[str, str]
 
 
 @dataclass
@@ -76,7 +104,8 @@ class Reporter(ABC):
         """
         self.reporter_type = reporter_type
         self.test_context = self._detect_test_context(request, tbinfo)
-        self.metrics: List[MetricRecord] = []
+        self.registered_metrics: List['Metric'] = []
+        self._gathered_metrics: List[MetricRecord] = []
 
     def _detect_test_context(self, request=None, tbinfo=None) -> Dict[str, str]:
         """
@@ -113,53 +142,61 @@ class Reporter(ABC):
 
         return context
 
-    def add_record(self, metric: 'Metric', data: MetricRecordDataT,
-                   additional_labels: Optional[Dict[str, str]] = None):
+    def register_metric(self, metric: 'Metric'):
         """
-        Add a metric measurement to the reporter.
-
-        The reporter will merge test context, metric labels, and additional labels.
+        Register a metric with this reporter.
 
         Args:
-            metric: Metric instance
-            value: Measured value (single value for Gauge/Counter, list of values for Histogram)
-            additional_labels: Additional labels for this measurement
+            metric: Metric instance to register
         """
-        # Merge all labels: test context + metric labels + additional labels
-        final_labels = {**self.test_context}
-        final_labels.update(metric.labels)
-        if additional_labels:
-            final_labels.update(additional_labels)
+        if metric not in self.registered_metrics:
+            self.registered_metrics.append(metric)
 
-        record = MetricRecord(metric=metric, data=data, labels=final_labels)
-        self.metrics.append(record)
+    def gather_all_recorded_metrics(self):
+        """
+        Gather all recorded metrics from registered metrics and store them in the reporter.
+
+        This method collects all metrics from individual metric objects and stores them
+        centrally in the reporter for efficient access.
+        """
+        self._gathered_metrics.clear()
+        for metric in self.registered_metrics:
+            records = metric.get_metric_records()
+            self._gathered_metrics.extend(records)
 
     @property
     def recorded_metrics(self) -> List[MetricRecord]:
-        """Get the recorded metrics."""
-        return self.metrics
+        """Get the gathered recorded metrics from the reporter's central storage."""
+        return self._gathered_metrics
 
     def recorded_metrics_count(self) -> int:
         """
         Get the number of pending measurements.
 
         Returns:
-            Count of measurements in buffer
+            Count of measurements in the gathered metrics storage
         """
-        return len(self.metrics)
+        return len(self._gathered_metrics)
 
     def report(self):
         """
-        Report all collected metrics to the backend and clear the buffer.
+        Report all collected metrics to the backend and clear the buffers.
 
-        This method generates the timestamp and calls the subclass-specific _report method.
+        This method gathers all metrics, generates the timestamp and calls the subclass-specific _report method.
         """
-        if not self.recorded_metrics:
+        # Gather all metrics from registered metrics first
+        self.gather_all_recorded_metrics()
+
+        if not self._gathered_metrics:
             return
 
         timestamp = time.time_ns()
         self._report(timestamp)
-        self.metrics.clear()
+
+        # Clear data from all registered metrics and gathered storage
+        for metric in self.registered_metrics:
+            metric.clear_data()
+        self._gathered_metrics.clear()
 
     @abstractmethod
     def _report(self, timestamp: float):
@@ -197,6 +234,10 @@ class Metric(ABC):
         self.reporter = reporter
         self._common_labels = common_labels or {}
         self.metric_type = metric_type
+        self._data: Dict[str, MetricDataEntry] = {}  # Map of labels_key -> MetricDataEntry
+
+        # Register this metric with the reporter
+        self.reporter.register_metric(self)
 
     @property
     def labels(self) -> Dict[str, str]:
@@ -207,6 +248,44 @@ class Metric(ABC):
             Dictionary containing common labels for this metric
         """
         return self._common_labels
+
+    def _labels_to_key(self, labels: Optional[Dict[str, str]]) -> str:
+        """
+        Convert labels dictionary to a string key for data storage.
+
+        Args:
+            labels: Labels dictionary
+
+        Returns:
+            String key representing the labels
+        """
+        if labels is None:
+            return ""
+
+        # Sort labels for consistent key generation
+        sorted_items = sorted(labels.items())
+        return '|'.join(f"{k}={v}" for k, v in sorted_items)
+
+    def get_metric_records(self) -> List[MetricRecord]:
+        """
+        Get all metric records from stored data.
+
+        Args:
+            test_context: Test context from reporter (unused, kept for compatibility)
+
+        Returns:
+            List of MetricRecord objects
+        """
+        records = []
+        for _, entry in self._data.items():
+            merged_labels = {**self._common_labels, **entry.labels}
+            record = MetricRecord(metric=self, data=entry.data, labels=merged_labels)
+            records.append(record)
+        return records
+
+    def clear_data(self):
+        """Clear all stored data from this metric."""
+        self._data.clear()
 
 
 class MetricCollection:

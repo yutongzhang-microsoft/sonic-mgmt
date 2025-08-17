@@ -35,10 +35,12 @@ def test_recording_gauge_metric(mock_reporter):
     metric.record(75.5)
 
     # Verify it was recorded correctly
+    mock_reporter.gather_all_recorded_metrics()
     assert len(mock_reporter.recorded_metrics) == 1
+
     record = mock_reporter.recorded_metrics[0]
     assert record.metric.name == "test.metric.gauge"
-    assert record.value == 75.5
+    assert record.data == 75.5
     assert record.metric.metric_type == "gauge"
     assert record.metric.description == "Test gauge metric"
     assert record.metric.unit == "percent"
@@ -50,22 +52,24 @@ def test_recording_histogram_metric(mock_reporter):
         name="response.time",
         description="API response time distribution",
         unit="milliseconds",
-        reporter=mock_reporter
+        reporter=mock_reporter,
+        buckets=[1.0, 2.0, 5.0, 10.0]
     )
 
     # Record a distribution of response times
-    response_times = [1.2, 3.4, 2.1, 5.6, 1.8]
-    for time in response_times:
-        metric.record(time)
+    response_times = [1, 3, 2, 5, 8]
+    metric.record_bucket_counts(response_times)
 
-    # Verify all values were recorded
-    assert len(mock_reporter.recorded_metrics) == len(response_times)
-    recorded_values = [r.value for r in mock_reporter.recorded_metrics]
-    assert recorded_values == response_times
+    # Verify that the histogram metric was recorded
+    mock_reporter.gather_all_recorded_metrics()
+    assert len(mock_reporter.recorded_metrics) == 1
 
-    # Verify metric type
-    for record in mock_reporter.recorded_metrics:
-        assert record.metric.metric_type == "histogram"
+    # Verify the recorded data is HistogramRecordData
+    record = mock_reporter.recorded_metrics[0]
+    assert record.metric.metric_type == "histogram"
+    assert hasattr(record.data, 'bucket_counts')
+    assert hasattr(record.data, 'total_count')
+    assert record.data.total_count == 19
 
 
 def test_label_precedence_and_merging(mock_reporter):
@@ -97,13 +101,14 @@ def test_label_precedence_and_merging(mock_reporter):
     metric.record(85.5, additional_labels)
 
     # Verify label merging and precedence
+    mock_reporter.gather_all_recorded_metrics()
     assert len(mock_reporter.recorded_metrics) == 1
     labels = mock_reporter.recorded_metrics[0].labels
 
-    # Test context labels (should be preserved unless overridden)
-    assert labels["test.testcase"] == "test_label_merging"
-    assert labels["test.file"] == "test_metrics.py"
-    assert labels["test.os.version"] == "sonic-build-123"
+    # Test context labels, should not be stored in labels
+    assert "test.testcase" not in labels
+    assert "test.file" not in labels
+    assert "test.os.version" not in labels
 
     # Common labels (should be preserved unless overridden)
     assert labels["device.port.id"] == "Ethernet0"  # Not overridden

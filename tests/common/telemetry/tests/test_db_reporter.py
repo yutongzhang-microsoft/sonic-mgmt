@@ -206,11 +206,12 @@ class TestDBReporter:
 
         # Test all metric types
         gauge_metric = GaugeMetric("test.gauge", "Test gauge", "percent", db_reporter)
-        histogram_metric = HistogramMetric("test.histogram", "Test histogram", "ms", db_reporter)
+        histogram_metric = HistogramMetric("test.histogram", "Test histogram", "ms",
+                                           db_reporter, buckets=[0.5, 1.0, 2.0])
 
         # Record one value for each type
         gauge_metric.record(42.5, {"type": "gauge_test"})
-        histogram_metric.record(1.23, {"type": "histogram_test"})
+        histogram_metric.record_bucket_counts([1.23], {"type": "histogram_test"})
 
         db_reporter.report()
 

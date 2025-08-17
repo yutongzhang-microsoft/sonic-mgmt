@@ -6,7 +6,7 @@ such as temperature, utilization percentages, or current measurements.
 """
 
 from typing import Dict, Optional
-from ..base import Metric, Reporter
+from ..base import Metric, Reporter, MetricDataEntry
 from ..constants import METRIC_TYPE_GAUGE
 
 
@@ -40,4 +40,8 @@ class GaugeMetric(Metric):
             value: Measured value
             additional_labels: Additional labels for this specific measurement
         """
-        self.reporter.add_record(self, value, additional_labels)
+        # Merge labels and create key
+        labels_key = self._labels_to_key(additional_labels)
+
+        # Store the value with labels (gauge always overwrites previous value for same labels)
+        self._data[labels_key] = MetricDataEntry(data=value, labels=additional_labels or {})

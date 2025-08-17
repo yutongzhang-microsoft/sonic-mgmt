@@ -16,6 +16,7 @@ from common.telemetry import (
     GaugeMetric, HistogramMetric,
     DevicePortMetrics
 )
+from common.telemetry.reporters.ts_reporter import TSReporter
 
 pytestmark = [
     pytest.mark.topology('any'),
@@ -36,8 +37,6 @@ class TestTSReporter:
 
     def test_set_clear_mock_exporter(self):
         """Test setting and clearing mock exporter."""
-        from common.telemetry.reporters.ts_reporter import TSReporter
-
         mock_exporter_func, _ = self._create_mock_export_func()
 
         # Create TSReporter
@@ -61,6 +60,7 @@ class TestTSReporter:
         ts_reporter, exported_metrics = self._create_ts_reporter_with_mock_exporter()
 
         # Call report with no measurements
+        ts_reporter.gather_all_recorded_metrics()
         ts_reporter.report()
 
         # Verify no export was called
@@ -84,6 +84,7 @@ class TestTSReporter:
         gauge_metric.record(85.5, test_labels)
 
         # Call report to trigger mock exporter
+        ts_reporter.gather_all_recorded_metrics()
         ts_reporter.report()
 
         # Verify mock exporter was called
@@ -121,9 +122,10 @@ class TestTSReporter:
 
         # Record histogram metric with a list of values
         test_labels = {"device.id": "test-dut", "test.scenario": "histogram"}
-        histogram_metric.record([10, 20, 30, 40], test_labels)
+        histogram_metric.record_bucket_counts([10, 20, 30, 40], test_labels)
 
         # Call report to trigger mock exporter
+        ts_reporter.gather_all_recorded_metrics()
         ts_reporter.report()
 
         # Verify mock exporter was called
@@ -156,6 +158,7 @@ class TestTSReporter:
         metric.record(200, {"instance": "2"})
         metric.record(300, {"instance": "3"})
 
+        ts_reporter.gather_all_recorded_metrics()
         ts_reporter.report()
 
         # Verify grouping - should have 1 OTLP metric with 3 data points
@@ -191,6 +194,7 @@ class TestTSReporter:
             port_metrics.rx_util.record(38.7 + i * 3)
 
             # Report for this time period
+            ts_reporter.gather_all_recorded_metrics()
             ts_reporter.report()
 
             # Verify incremental reporting
@@ -201,7 +205,6 @@ class TestTSReporter:
 
     def test_without_mock_exporter(self):
         """Test TSReporter without mock exporter (should fall back to mock reporting)."""
-        from common.telemetry.reporters.ts_reporter import TSReporter
 
         # Create TSReporter without mock exporter
         ts_reporter = TSReporter(request=self.mock_request, tbinfo=self.mock_tbinfo)
@@ -218,6 +221,7 @@ class TestTSReporter:
         metric.record(45.0, {"device.id": "fallback-dut"})
 
         # Report metrics - should fall back to mock reporting (no exception)
+        ts_reporter.gather_all_recorded_metrics()
         ts_reporter.report()
 
         # Verify measurements were cleared
@@ -265,8 +269,6 @@ class TestTSReporter:
         Returns:
             tuple: (ts_reporter, exported_metrics)
         """
-        from common.telemetry.reporters.ts_reporter import TSReporter
-
         # Create mock exporter
         mock_exporter_func, exported_metrics = self._create_mock_export_func()
 

@@ -7,8 +7,8 @@ the OTLP protocol for real-time monitoring, dashboards, and alerting.
 
 import logging
 import os
-from typing import Dict, Optional, List, Tuple
-from ..base import Reporter, MetricRecordDataT
+from typing import Dict, Optional, List
+from ..base import Reporter, MetricRecord
 from ..constants import (
     REPORTER_TYPE_TS, METRIC_TYPE_GAUGE, METRIC_TYPE_HISTOGRAM,
     ENV_SONIC_MGMT_TS_REPORT_ENDPOINT
@@ -41,14 +41,13 @@ class TSReporter(Reporter):
     """
 
     def __init__(self, endpoint: Optional[str] = None, headers: Optional[Dict[str, str]] = None,
-                 resource_attributes: Optional[Dict[str, str]] = None, request=None, tbinfo=None):
+                 request=None, tbinfo=None):
         """
         Initialize TS reporter with OTLP exporter.
 
         Args:
             endpoint: OTLP collector endpoint (default: from SONIC_MGMT_TS_REPORT_ENDPOINT env var)
             headers: Additional headers for OTLP requests
-            resource_attributes: Additional resource attributes for metrics
             request: pytest request object for test context
             tbinfo: testbed info fixture data
         """
@@ -57,7 +56,6 @@ class TSReporter(Reporter):
         # Configuration
         self.endpoint = endpoint or os.environ.get(ENV_SONIC_MGMT_TS_REPORT_ENDPOINT, 'http://localhost:4317')
         self.headers = headers or {}
-        self.resource_attributes = resource_attributes or {}
         self.mock_exporter = None  # For testing compatibility
         self._setup_exporter()
 
@@ -136,14 +134,14 @@ class TSReporter(Reporter):
             if key not in metric_groups:
                 metric_groups[key] = {
                     'metric': record.metric,
-                    'measurements': []
+                    'records': []
                 }
-            metric_groups[key]['measurements'].append((record.data, record.labels))
+            metric_groups[key]['records'].append(record)
 
         # Create SDK metrics
         sdk_metrics = []
         for (metric_name, metric_type), group in metric_groups.items():
-            sdk_metric = self._create_sdk_metric(group['metric'], group['measurements'], timestamp)
+            sdk_metric = self._create_sdk_metric(group['metric'], group['records'], timestamp)
             if sdk_metric:
                 sdk_metrics.append(sdk_metric)
 
@@ -179,19 +177,18 @@ class TSReporter(Reporter):
             "service.name": "sonic-test-telemetry",
             "service.version": "1.0.0",
             **self.test_context,
-            **self.resource_attributes
         }
 
         return Resource.create(all_attrs)
 
-    def _create_sdk_metric(self, metric, measurements: List[Tuple[MetricRecordDataT, Dict[str, str]]],
+    def _create_sdk_metric(self, metric, records: List[MetricRecord],
                            timestamp: float) -> Optional[Metric]:
         """
-        Create SDK Metric from measurements.
+        Create SDK Metric from metric records.
 
         Args:
             metric: Metric instance from telemetry framework
-            measurements: List of (value, labels) tuples
+            records: List of MetricRecord objects
             timestamp: Timestamp for all measurements
 
         Returns:
@@ -201,12 +198,12 @@ class TSReporter(Reporter):
 
         if metric.metric_type == METRIC_TYPE_GAUGE:
             data_points = []
-            for value, labels in measurements:
+            for record in records:
                 data_point = NumberDataPoint(
-                    attributes=labels,
+                    attributes=record.labels,
                     start_time_unix_nano=timestamp_ns,
                     time_unix_nano=timestamp_ns,
-                    value=float(value)
+                    value=float(record.data)
                 )
                 data_points.append(data_point)
 
@@ -220,18 +217,18 @@ class TSReporter(Reporter):
 
         elif metric.metric_type == METRIC_TYPE_HISTOGRAM:
             data_points = []
-            for values, labels in measurements:
-                total_count = sum(values)
+            for record in records:
+                histogram_data = record.data
                 data_point = HistogramDataPoint(
-                    attributes=labels,
+                    attributes=record.labels,
                     start_time_unix_nano=timestamp_ns,
                     time_unix_nano=timestamp_ns,
-                    count=total_count,
-                    sum=None,
-                    bucket_counts=values,
+                    count=histogram_data.total_count,
+                    sum=histogram_data.sum,
+                    bucket_counts=histogram_data.bucket_counts,
                     explicit_bounds=metric.buckets,
-                    min=None,
-                    max=None,
+                    min=histogram_data.min,
+                    max=histogram_data.max,
                 )
                 data_points.append(data_point)
 

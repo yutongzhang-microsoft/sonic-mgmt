@@ -33,6 +33,8 @@ def validate_recorded_metrics(mock_reporter: MockReporter, collection_name: str)
         mock_reporter: The mock reporter that recorded metrics
         collection_name: Name of the collection to load baseline data for
     """
+    mock_reporter.gather_all_recorded_metrics()
+
     # Convert recorded metrics to comparable format
     actual_records = []
     for record in mock_reporter.recorded_metrics:
