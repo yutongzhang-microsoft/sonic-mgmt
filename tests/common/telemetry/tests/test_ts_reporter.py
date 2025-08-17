@@ -13,7 +13,7 @@ from unittest.mock import Mock
 
 # Import the telemetry framework
 from common.telemetry import (
-    GaugeMetric, CounterMetric, HistogramMetric,
+    GaugeMetric, HistogramMetric,
     DevicePortMetrics
 )
 
@@ -89,8 +89,9 @@ class TestTSReporter:
         # Verify mock exporter was called
         assert len(exported_metrics) == 1, f"Expected 1 export call, got {len(exported_metrics)}"
 
-        # Verify the exported ResourceMetrics structure
-        resource_metrics = exported_metrics[0]
+        # Verify the exported MetricsData structure
+        metrics_data = exported_metrics[0]
+        resource_metrics = metrics_data.resource_metrics[0]
         self._validate_otlp_resource_structure(resource_metrics)
         scope_metric = self._validate_otlp_scope_structure(resource_metrics, expected_metrics_count=1)
 
@@ -99,45 +100,7 @@ class TestTSReporter:
         assert otlp_metric.name == "test.cpu.usage"
         assert otlp_metric.description == "CPU usage percentage"
         assert otlp_metric.unit == "percent"
-        assert hasattr(otlp_metric, 'gauge')
-
-        # Verify measurements were cleared
-        assert ts_reporter.recorded_metrics_count() == 0
-
-    def test_mock_exporter_counter_metric(self):
-        """Test TSReporter with mock exporter for CounterMetric."""
-        # Create TSReporter with mock exporter
-        ts_reporter, exported_metrics = self._create_ts_reporter_with_mock_exporter()
-
-        # Create counter metric
-        counter_metric = CounterMetric(
-            name="test.packet.count",
-            description="Total packet count",
-            unit="packets",
-            reporter=ts_reporter
-        )
-
-        # Record counter metric
-        test_labels = {"device.id": "test-dut", "test.scenario": "counter"}
-        counter_metric.record(42, test_labels)
-
-        # Call report to trigger mock exporter
-        ts_reporter.report()
-
-        # Verify mock exporter was called
-        assert len(exported_metrics) == 1, f"Expected 1 export call, got {len(exported_metrics)}"
-
-        # Verify the exported ResourceMetrics structure
-        resource_metrics = exported_metrics[0]
-        self._validate_otlp_resource_structure(resource_metrics)
-        scope_metric = self._validate_otlp_scope_structure(resource_metrics, expected_metrics_count=1)
-
-        # Check metrics - should have 1 counter metric
-        otlp_metric = scope_metric.metrics[0]
-        assert otlp_metric.name == "test.packet.count"
-        assert otlp_metric.description == "Total packet count"
-        assert otlp_metric.unit == "packets"
-        assert hasattr(otlp_metric, 'sum')
+        assert hasattr(otlp_metric.data, 'data_points')
 
         # Verify measurements were cleared
         assert ts_reporter.recorded_metrics_count() == 0
@@ -152,12 +115,13 @@ class TestTSReporter:
             name="test.response.time",
             description="API response time",
             unit="milliseconds",
+            buckets=[0, 100, 200],
             reporter=ts_reporter
         )
 
-        # Record histogram metric
+        # Record histogram metric with a list of values
         test_labels = {"device.id": "test-dut", "test.scenario": "histogram"}
-        histogram_metric.record(123.45, test_labels)
+        histogram_metric.record([10, 20, 30, 40], test_labels)
 
         # Call report to trigger mock exporter
         ts_reporter.report()
@@ -165,8 +129,9 @@ class TestTSReporter:
         # Verify mock exporter was called
         assert len(exported_metrics) == 1, f"Expected 1 export call, got {len(exported_metrics)}"
 
-        # Verify the exported ResourceMetrics structure
-        resource_metrics = exported_metrics[0]
+        # Verify the exported MetricsData structure
+        metrics_data = exported_metrics[0]
+        resource_metrics = metrics_data.resource_metrics[0]
         self._validate_otlp_resource_structure(resource_metrics)
         scope_metric = self._validate_otlp_scope_structure(resource_metrics, expected_metrics_count=1)
 
@@ -175,7 +140,7 @@ class TestTSReporter:
         assert otlp_metric.name == "test.response.time"
         assert otlp_metric.description == "API response time"
         assert otlp_metric.unit == "milliseconds"
-        assert hasattr(otlp_metric, 'histogram')
+        assert hasattr(otlp_metric.data, 'data_points')
 
         # Verify measurements were cleared
         assert ts_reporter.recorded_metrics_count() == 0
@@ -194,15 +159,16 @@ class TestTSReporter:
         ts_reporter.report()
 
         # Verify grouping - should have 1 OTLP metric with 3 data points
-        resource_metrics = exported_metrics[0]
+        metrics_data = exported_metrics[0]
+        resource_metrics = metrics_data.resource_metrics[0]
         scope_metric = self._validate_otlp_scope_structure(resource_metrics, expected_metrics_count=1)
 
         otlp_metric = scope_metric.metrics[0]
         assert otlp_metric.name == "test.grouped.metric"
-        assert len(otlp_metric.gauge.data_points) == 3
+        assert len(otlp_metric.data.data_points) == 3
 
         # Verify all data points are present
-        values = [dp.as_double for dp in otlp_metric.gauge.data_points]
+        values = [dp.value for dp in otlp_metric.data.data_points]
         assert sorted(values) == [100.0, 200.0, 300.0]
 
     def test_periodic_reporting_simulation(self):
@@ -264,30 +230,28 @@ class TestTSReporter:
         Returns:
             tuple: (mock_exporter_func, exported_metrics_list)
                 - mock_exporter_func: Function to pass to TSReporter.set_mock_exporter()
-                - exported_metrics_list: List that captures all exported ResourceMetrics
+                - exported_metrics_list: List that captures all exported MetricsData
         """
         exported_metrics = []
 
-        def mock_exporter_func(resource_metrics):
+        def mock_exporter_func(metrics_data):
             """
-            Mock exporter that captures ResourceMetrics for verification.
+            Mock exporter that captures MetricsData for verification.
 
             Args:
-                resource_metrics: ResourceMetrics object from OTLP
+                metrics_data: MetricsData object from OTLP SDK
             """
-            exported_metrics.append(resource_metrics)
+            exported_metrics.append(metrics_data)
 
             # Validate basic structure
-            assert hasattr(resource_metrics, 'resource'), "ResourceMetrics missing resource"
-            assert hasattr(resource_metrics, 'scope_metrics'), "ResourceMetrics missing scope_metrics"
-            assert len(resource_metrics.scope_metrics) > 0, "ResourceMetrics should have scope_metrics"
+            assert hasattr(metrics_data, 'resource_metrics'), "MetricsData missing resource_metrics"
+            assert len(metrics_data.resource_metrics) > 0, "MetricsData should have resource_metrics"
 
             # Log captured metrics for debugging
-            for scope_metric in resource_metrics.scope_metrics:
-                print(f"Captured scope: {scope_metric.scope.name} v{scope_metric.scope.version}")
-                print(f"Metrics count: {len(scope_metric.metrics)}")
-                for metric in scope_metric.metrics:
-                    print(f"  - {metric.name} ({metric.description}) [{metric.unit}]")
+            for resource_metrics in metrics_data.resource_metrics:
+                assert hasattr(resource_metrics, 'resource'), "ResourceMetrics missing resource"
+                assert hasattr(resource_metrics, 'scope_metrics'), "ResourceMetrics missing scope_metrics"
+                assert len(resource_metrics.scope_metrics) > 0, "ResourceMetrics should have scope_metrics"
 
         return mock_exporter_func, exported_metrics
 
@@ -325,12 +289,12 @@ class TestTSReporter:
         Validate OTLP ResourceMetrics structure and resource attributes.
 
         Args:
-            resource_metrics: ResourceMetrics object from OTLP
+            resource_metrics: ResourceMetrics object from OTLP SDK
             expected_custom_attrs: Optional dict of expected custom resource attributes
         """
         # Check resource attributes
         assert resource_metrics.resource is not None
-        resource_attrs = {kv.key: kv.value.string_value for kv in resource_metrics.resource.attributes}
+        resource_attrs = resource_metrics.resource.attributes
 
         # Verify standard service attributes
         assert "service.name" in resource_attrs

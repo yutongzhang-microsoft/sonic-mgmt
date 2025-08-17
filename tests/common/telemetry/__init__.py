@@ -7,7 +7,7 @@ SONiC Mgmt Test Telemetry Framework
 from .base import Reporter, Metric, MetricCollection, MetricDefinition
 
 # Metric types
-from .metrics import GaugeMetric, CounterMetric, HistogramMetric
+from .metrics import GaugeMetric, HistogramMetric
 
 # Reporters
 from .reporters import TSReporter, DBReporter
@@ -49,7 +49,7 @@ __all__ = [
     'Reporter', 'Metric', 'MetricCollection', 'MetricDefinition',
 
     # Metric types
-    'GaugeMetric', 'CounterMetric', 'HistogramMetric',
+    'GaugeMetric', 'HistogramMetric',
 
     # Reporters
     'TSReporter', 'DBReporter',

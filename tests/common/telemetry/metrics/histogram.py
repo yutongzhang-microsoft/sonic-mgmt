@@ -19,8 +19,7 @@ class HistogramMetric(Metric):
     """
 
     def __init__(self, name: str, description: str, unit: str, reporter: Reporter,
-                 buckets: Optional[List[float]] = None,
-                 common_labels: Optional[Dict[str, str]] = None):
+                 buckets: List[float], common_labels: Optional[Dict[str, str]] = None):
         """
         Initialize histogram metric.
 
@@ -32,25 +31,18 @@ class HistogramMetric(Metric):
             buckets: Optional bucket boundaries for histogram distribution
             common_labels: Common labels to apply to all measurements of this metric
         """
-        super().__init__(name, description, unit, reporter, common_labels)
-        self.buckets = buckets or self._default_buckets()
+        super().__init__(METRIC_TYPE_HISTOGRAM, name, description, unit, reporter, common_labels)
+        self.buckets = buckets
 
-    def _get_metric_type(self) -> str:
+    def record(self, values: List[float], additional_labels: Optional[Dict[str, str]] = None):
         """
-        Return metric type identifier.
+        Record a list of measurements for this histogram metric.
 
-        Returns:
-            Histogram metric type constant
+        Args:
+            values: List of measured values for histogram distribution
+            additional_labels: Additional labels for this specific measurement
         """
-        return METRIC_TYPE_HISTOGRAM
+        if len(values) != len(self.buckets) + 1:
+            raise ValueError("Number of values must match number of histogram buckets")
 
-    def _default_buckets(self) -> List[float]:
-        """
-        Provide default bucket boundaries for histogram.
-
-        Returns:
-            List of bucket boundary values
-        """
-        # Default OpenTelemetry-style buckets
-        return [0.001, 0.005, 0.01, 0.025, 0.05, 0.075, 0.1, 0.25, 0.5,
-                0.75, 1.0, 2.5, 5.0, 7.5, 10.0]
+        self.reporter.add_record(self, values, additional_labels)

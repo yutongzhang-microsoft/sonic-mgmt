@@ -8,9 +8,9 @@ the OTLP protocol for real-time monitoring, dashboards, and alerting.
 import logging
 import os
 from typing import Dict, Optional, List, Tuple
-from ..base import Reporter
+from ..base import Reporter, MetricRecordDataT
 from ..constants import (
-    REPORTER_TYPE_TS, METRIC_TYPE_GAUGE, METRIC_TYPE_COUNTER, METRIC_TYPE_HISTOGRAM,
+    REPORTER_TYPE_TS, METRIC_TYPE_GAUGE, METRIC_TYPE_HISTOGRAM,
     ENV_SONIC_MGMT_TS_REPORT_ENDPOINT
 )
 
@@ -19,17 +19,18 @@ try:
     from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import OTLPMetricExporter
     from opentelemetry.sdk.metrics.export import (
         MetricsData, ResourceMetrics, ScopeMetrics, Metric,
-        Gauge, Sum, Histogram, AggregationTemporality
+        Gauge, Histogram, AggregationTemporality
     )
     from opentelemetry.sdk.metrics._internal.point import (
         NumberDataPoint, HistogramDataPoint
     )
     from opentelemetry.sdk.resources import Resource
-    from opentelemetry.sdk._internal.scope import InstrumentationScope
+    from opentelemetry.sdk.util.instrumentation import InstrumentationScope
     OTLP_AVAILABLE = True
-except ImportError:
+except ImportError as e:
     OTLP_AVAILABLE = False
-    logging.warning("OTLP exporter not available, TSReporter will operate in mock mode")
+    logging.warning(f"OTLP exporter not available, TSReporter will operate in mock mode: {e}")
+    raise e
 
 
 class TSReporter(Reporter):
@@ -97,31 +98,21 @@ class TSReporter(Reporter):
         Args:
             timestamp: Timestamp for this reporting batch (automatically in nanoseconds)
         """
-        logging.info(f"TSReporter: Reporting {len(self.recorded_metrics)} measurements")
+        logging.info(f"TSReporter: Reporting {len(self.recorded_metrics)} measurements (OTLP: {OTLP_AVAILABLE})")
 
         if not OTLP_AVAILABLE:
-            self._report_mock(timestamp)
+            self._report_metrics_as_log(timestamp)
             return
 
         # Create MetricsData using SDK objects
         metrics_data = self._create_metrics_data(timestamp)
-        if metrics_data:
-            if self.mock_exporter:
-                # Use mock exporter for testing - but adapt ResourceMetrics for compatibility
-                self._export_metrics_mock(metrics_data)
-            else:
-                self._export_metrics(metrics_data)
+        if not metrics_data:
+            return
 
-    def _report_mock(self, timestamp: float):
-        """
-        Mock reporting when OTLP is not available.
-
-        Args:
-            timestamp: Timestamp for this reporting batch
-        """
-        for record in self.recorded_metrics:
-            logging.info(f"MOCK TSReporter: {record.metric.name}={record.value} "
-                         f"labels={record.labels} timestamp={timestamp}")
+        if self.mock_exporter:
+            self.mock_exporter(metrics_data)
+        else:
+            self._export_metrics(metrics_data)
 
     def _create_metrics_data(self, timestamp: float) -> Optional[MetricsData]:
         """
@@ -148,7 +139,7 @@ class TSReporter(Reporter):
                     'metric': record.metric,
                     'measurements': []
                 }
-            metric_groups[key]['measurements'].append((record.value, record.labels))
+            metric_groups[key]['measurements'].append((record.data, record.labels))
 
         # Create SDK metrics
         sdk_metrics = []
@@ -194,7 +185,7 @@ class TSReporter(Reporter):
 
         return Resource.create(all_attrs)
 
-    def _create_sdk_metric(self, metric, measurements: List[Tuple[float, Dict[str, str]]],
+    def _create_sdk_metric(self, metric, measurements: List[Tuple[MetricRecordDataT, Dict[str, str]]],
                            timestamp: float) -> Optional[Metric]:
         """
         Create SDK Metric from measurements.
@@ -228,41 +219,20 @@ class TSReporter(Reporter):
                 data=gauge_data
             )
 
-        elif metric.metric_type == METRIC_TYPE_COUNTER:
-            data_points = []
-            for value, labels in measurements:
-                data_point = NumberDataPoint(
-                    attributes=labels,
-                    start_time_unix_nano=timestamp_ns,
-                    time_unix_nano=timestamp_ns,
-                    value=float(value)
-                )
-                data_points.append(data_point)
-
-            sum_data = Sum(
-                data_points=data_points,
-                aggregation_temporality=AggregationTemporality.CUMULATIVE,
-                is_monotonic=True
-            )
-            return Metric(
-                name=metric.name,
-                description=metric.description,
-                unit=metric.unit,
-                data=sum_data
-            )
-
         elif metric.metric_type == METRIC_TYPE_HISTOGRAM:
             data_points = []
-            for value, labels in measurements:
-                # Simple histogram with single bucket for now
+            for values, labels in measurements:
+                total_count = sum(values)
                 data_point = HistogramDataPoint(
                     attributes=labels,
                     start_time_unix_nano=timestamp_ns,
                     time_unix_nano=timestamp_ns,
-                    count=1,
-                    sum=float(value),
-                    bucket_counts=[1],  # Single bucket
-                    explicit_bounds=[]  # No explicit bounds
+                    count=total_count,
+                    sum=None,
+                    bucket_counts=values,
+                    explicit_bounds=metric.buckets,
+                    min=None,
+                    max=None,
                 )
                 data_points.append(data_point)
 
@@ -296,17 +266,13 @@ class TSReporter(Reporter):
         else:
             logging.warning("TSReporter: No exporter available")
 
-    def _export_metrics_mock(self, metrics_data: MetricsData):
+    def _report_metrics_as_log(self, timestamp: float):
         """
-        Export MetricsData using mock exporter for testing.
+        Report metrics as log entries.
 
         Args:
-            metrics_data: MetricsData object to export
+            timestamp: Timestamp for this reporting batch
         """
-        if self.mock_exporter and metrics_data.resource_metrics:
-            # Extract the first ResourceMetrics for compatibility with test expectations
-            resource_metrics = metrics_data.resource_metrics[0]
-            self.mock_exporter(resource_metrics)
-            logging.info("TSReporter: Successfully exported via mock exporter")
-        else:
-            logging.warning("TSReporter: No mock exporter available")
+        for record in self.recorded_metrics:
+            logging.info(f"TSReporter: {record.metric.name}={record.data} "
+                         f"labels={record.labels} timestamp={timestamp}")

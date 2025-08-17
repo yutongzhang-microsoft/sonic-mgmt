@@ -6,7 +6,7 @@ for the telemetry system including Reporter, Metric, and MetricCollection.
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, Optional, List
+from typing import Dict, Optional, List, Union
 from dataclasses import dataclass
 import os
 import time
@@ -16,6 +16,9 @@ from .constants import (
     METRIC_LABEL_TEST_JOB_ID, METRIC_LABEL_TEST_PARAMS_PREFIX,
     ENV_TESTBED_NAME, ENV_BUILD_VERSION, ENV_JOB_ID
 )
+
+# Type alias for metric data that can be either a single value or a list of values
+MetricRecordDataT = Union[float, List[float]]
 
 
 @dataclass
@@ -45,12 +48,13 @@ class MetricRecord:
     dataclass that provides better code clarity and maintainability.
     """
     metric: 'Metric'
-    value: float
+    data: MetricRecordDataT
     labels: Dict[str, str]
 
     def __str__(self) -> str:
         """Return a readable string representation."""
-        return f"MetricRecord({self.metric.name}={self.value}, labels={len(self.labels)})"
+        value_str = f"[{len(self.data)} values]" if isinstance(self.data, list) else str(self.data)
+        return f"MetricRecord({self.metric.name}={value_str}, labels={len(self.labels)})"
 
 
 class Reporter(ABC):
@@ -109,7 +113,8 @@ class Reporter(ABC):
 
         return context
 
-    def add_metric(self, metric: 'Metric', value: float, additional_labels: Optional[Dict[str, str]] = None):
+    def add_record(self, metric: 'Metric', data: MetricRecordDataT,
+                   additional_labels: Optional[Dict[str, str]] = None):
         """
         Add a metric measurement to the reporter.
 
@@ -117,7 +122,7 @@ class Reporter(ABC):
 
         Args:
             metric: Metric instance
-            value: Measured value
+            value: Measured value (single value for Gauge/Counter, list of values for Histogram)
             additional_labels: Additional labels for this measurement
         """
         # Merge all labels: test context + metric labels + additional labels
@@ -126,7 +131,7 @@ class Reporter(ABC):
         if additional_labels:
             final_labels.update(additional_labels)
 
-        record = MetricRecord(metric=metric, value=value, labels=final_labels)
+        record = MetricRecord(metric=metric, data=data, labels=final_labels)
         self.metrics.append(record)
 
     @property
@@ -174,7 +179,7 @@ class Metric(ABC):
     Metrics represent measurable quantities following OpenTelemetry conventions.
     """
 
-    def __init__(self, name: str, description: str, unit: str, reporter: Reporter,
+    def __init__(self, metric_type: str, name: str, description: str, unit: str, reporter: Reporter,
                  common_labels: Optional[Dict[str, str]] = None):
         """
         Initialize metric with metadata.
@@ -191,7 +196,7 @@ class Metric(ABC):
         self.unit = unit
         self.reporter = reporter
         self._common_labels = common_labels or {}
-        self.metric_type = self._get_metric_type()
+        self.metric_type = metric_type
 
     @property
     def labels(self) -> Dict[str, str]:
@@ -202,27 +207,6 @@ class Metric(ABC):
             Dictionary containing common labels for this metric
         """
         return self._common_labels
-
-    @abstractmethod
-    def _get_metric_type(self) -> str:
-        """
-        Return the type of this metric (gauge, counter, histogram).
-
-        Returns:
-            String identifier for metric type
-        """
-        pass
-
-    def record(self, value: float, additional_labels: Optional[Dict[str, str]] = None):
-        """
-        Record a measurement for this metric.
-
-        Args:
-            value: Measured value
-            additional_labels: Additional labels for this specific measurement
-        """
-        # Let the reporter handle all label merging
-        self.reporter.add_metric(self, value, additional_labels)
 
 
 class MetricCollection:

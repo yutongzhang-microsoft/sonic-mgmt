@@ -18,7 +18,7 @@ import pytest
 
 # Import the telemetry framework
 from common.telemetry import (
-    GaugeMetric, CounterMetric, HistogramMetric
+    GaugeMetric, HistogramMetric
 )
 
 pytestmark = [
@@ -205,12 +205,10 @@ class TestDBReporter:
 
         # Test all metric types
         gauge_metric = GaugeMetric("test.gauge", "Test gauge", "percent", db_reporter)
-        counter_metric = CounterMetric("test.counter", "Test counter", "count", db_reporter)
         histogram_metric = HistogramMetric("test.histogram", "Test histogram", "ms", db_reporter)
 
         # Record one value for each type
         gauge_metric.record(42.5, {"type": "gauge_test"})
-        counter_metric.record(12345, {"type": "counter_test"})
         histogram_metric.record(1.23, {"type": "histogram_test"})
 
         db_reporter.report()

@@ -13,7 +13,7 @@ Each metric test follows the pattern:
 
 import pytest
 
-from common.telemetry import GaugeMetric, CounterMetric, HistogramMetric
+from common.telemetry import GaugeMetric, HistogramMetric
 
 
 pytestmark = [
@@ -42,30 +42,6 @@ def test_recording_gauge_metric(mock_reporter):
     assert record.metric.metric_type == "gauge"
     assert record.metric.description == "Test gauge metric"
     assert record.metric.unit == "percent"
-
-
-def test_recording_counter_metric(mock_reporter):
-    """Test that CounterMetric records values correctly."""
-    metric = CounterMetric(
-        name="packets.transmitted",
-        description="Total packets transmitted",
-        unit="packets",
-        reporter=mock_reporter
-    )
-
-    # Record values (counters are cumulative)
-    metric.record(1000)
-    metric.record(1500)
-    metric.record(2100)
-
-    # Verify all values were recorded
-    assert len(mock_reporter.recorded_metrics) == 3
-    values = [r.value for r in mock_reporter.recorded_metrics]
-    assert values == [1000, 1500, 2100]
-
-    # Verify metric type
-    for record in mock_reporter.recorded_metrics:
-        assert record.metric.metric_type == "counter"
 
 
 def test_recording_histogram_metric(mock_reporter):

@@ -38,7 +38,7 @@ def validate_recorded_metrics(mock_reporter: MockReporter, collection_name: str)
     for record in mock_reporter.recorded_metrics:
         actual_records.append({
             "metric_name": record.metric.name,
-            "value": record.value,
+            "value": record.data,
             "labels": {k: v for k, v in record.labels.items()
                        if not k.startswith("test.")}  # Filter out test context labels
         })

@@ -104,5 +104,4 @@ REPORTER_TYPE_DB = "db"
 
 # Metric Types
 METRIC_TYPE_GAUGE = "gauge"
-METRIC_TYPE_COUNTER = "counter"
 METRIC_TYPE_HISTOGRAM = "histogram"

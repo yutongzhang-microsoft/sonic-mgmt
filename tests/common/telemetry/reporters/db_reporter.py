@@ -76,7 +76,7 @@ class DBReporter(Reporter):
                 "metric_type": record.metric.metric_type,
                 "description": record.metric.description,
                 "unit": record.metric.unit,
-                "value": record.value,
+                "value": record.data,
                 "labels": record.labels,
                 "timestamp": timestamp,
                 "timestamp_iso": timestamp_dt.isoformat()

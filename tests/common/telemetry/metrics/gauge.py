@@ -30,13 +30,14 @@ class GaugeMetric(Metric):
             reporter: Reporter instance to send measurements to
             common_labels: Common labels to apply to all measurements of this metric
         """
-        super().__init__(name, description, unit, reporter, common_labels)
+        super().__init__(METRIC_TYPE_GAUGE, name, description, unit, reporter, common_labels)
 
-    def _get_metric_type(self) -> str:
+    def record(self, value: float, additional_labels: Optional[Dict[str, str]] = None):
         """
-        Return metric type identifier.
+        Record a measurement for this metric.
 
-        Returns:
-            Gauge metric type constant
+        Args:
+            value: Measured value
+            additional_labels: Additional labels for this specific measurement
         """
-        return METRIC_TYPE_GAUGE
+        self.reporter.add_record(self, value, additional_labels)
