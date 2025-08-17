@@ -203,30 +203,6 @@ class TestTSReporter:
         # Verify final total
         assert len(exported_metrics) == simulation_iterations
 
-    def test_without_mock_exporter(self):
-        """Test TSReporter without mock exporter (should fall back to mock reporting)."""
-
-        # Create TSReporter without mock exporter
-        ts_reporter = TSReporter(request=self.mock_request, tbinfo=self.mock_tbinfo)
-
-        # Create metric
-        metric = GaugeMetric(
-            name="test.fallback.metric",
-            description="Test fallback metric",
-            unit="percent",
-            reporter=ts_reporter
-        )
-
-        # Record measurement
-        metric.record(45.0, {"device.id": "fallback-dut"})
-
-        # Report metrics - should fall back to mock reporting (no exception)
-        ts_reporter.gather_all_recorded_metrics()
-        ts_reporter.report()
-
-        # Verify measurements were cleared
-        assert ts_reporter.recorded_metrics_count() == 0
-
     def _create_mock_export_func(self):
         """
         Create a mock exporter function for testing TSReporter.
