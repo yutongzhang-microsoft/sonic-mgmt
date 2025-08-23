@@ -28,9 +28,19 @@ class HistogramRecordData:
     """
     bucket_counts: List[int]
     total_count: int
-    sum: Optional[float]
-    min: Optional[float]
-    max: Optional[float]
+    sum: Optional[float] = None
+    min: Optional[float] = None
+    max: Optional[float] = None
+
+    def to_dict(self) -> dict:
+        """Convert to dictionary for JSON serialization."""
+        return {
+            "bucket_counts": self.bucket_counts,
+            "total_count": self.total_count,
+            "sum": self.sum,
+            "min": self.min,
+            "max": self.max
+        }
 
 
 # Type alias for metric data that can be either a single value or a list of values
@@ -178,11 +188,14 @@ class Reporter(ABC):
         """
         return len(self._gathered_metrics)
 
-    def report(self):
+    def report(self, timestamp: float = None):
         """
         Report all collected metrics to the backend and clear the buffers.
 
         This method gathers all metrics, generates the timestamp and calls the subclass-specific _report method.
+
+        Args:
+            timestamp: Optional timestamp in nanoseconds. If not provided, uses current time.
         """
         # Gather all metrics from registered metrics first
         self.gather_all_recorded_metrics()
@@ -190,7 +203,8 @@ class Reporter(ABC):
         if not self._gathered_metrics:
             return
 
-        timestamp = time.time_ns()
+        if timestamp is None:
+            timestamp = time.time_ns()
         self._report(timestamp)
 
         # Clear data from all registered metrics and gathered storage
@@ -228,12 +242,12 @@ class Metric(ABC):
             reporter: Reporter instance to send measurements to
             common_labels: Common labels to apply to all measurements of this metric
         """
+        self.metric_type = metric_type
         self.name = name
         self.description = description
         self.unit = unit
         self.reporter = reporter
         self._common_labels = common_labels or {}
-        self.metric_type = metric_type
         self._data: Dict[str, MetricDataEntry] = {}  # Map of labels_key -> MetricDataEntry
 
         # Register this metric with the reporter

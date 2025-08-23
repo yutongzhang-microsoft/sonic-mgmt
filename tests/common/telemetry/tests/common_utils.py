@@ -9,6 +9,7 @@ import json
 import os
 
 from common.telemetry.base import Reporter
+from common.telemetry.reporters.db_reporter import DBReporter
 
 
 class MockReporter(Reporter):
@@ -23,30 +24,36 @@ class MockReporter(Reporter):
         self.report_called = True
 
 
-def validate_recorded_metrics(mock_reporter: MockReporter, collection_name: str):
+def validate_recorded_metrics(reporter: Reporter, collection_name: str):
     """
     Common validation function to compare mock reporter results with expected records from JSON baseline.
 
     If SONIC_MGMT_GENERATE_BASELINE=1, generates new baseline files from actual recorded data.
 
     Args:
-        mock_reporter: The mock reporter that recorded metrics
+        reporter: The reporter that recorded metrics
         collection_name: Name of the collection to load baseline data for
     """
-    mock_reporter.gather_all_recorded_metrics()
+    reporter.gather_all_recorded_metrics()
 
-    # Convert recorded metrics to comparable format
-    actual_records = []
-    for record in mock_reporter.recorded_metrics:
-        actual_records.append({
-            "metric_name": record.metric.name,
-            "value": record.data,
-            "labels": {k: v for k, v in record.labels.items()
-                       if not k.startswith("test.")}  # Filter out test context labels
-        })
+    # Serialize recorded metrics as-is without any assumptions about structure
+    actual_data = []
+    for record in reporter.recorded_metrics:
+        # Convert to serializable format
+        record_data = {
+            "metric": {
+                "name": record.metric.name,
+                "metric_type": record.metric.metric_type,
+                "description": record.metric.description,
+                "unit": record.metric.unit
+            },
+            "data": record.data,
+            "labels": record.labels
+        }
+        actual_data.append(record_data)
 
     # Sort by metric name for consistent comparison
-    actual_records.sort(key=lambda x: x["metric_name"])
+    actual_data.sort(key=lambda x: x["metric"]["name"])
 
     baseline_dir = os.path.join(os.path.dirname(__file__), 'baselines')
     baseline_file = os.path.join(baseline_dir, f'{collection_name}.json')
@@ -56,33 +63,178 @@ def validate_recorded_metrics(mock_reporter: MockReporter, collection_name: str)
         # Ensure baseline directory exists
         os.makedirs(baseline_dir, exist_ok=True)
 
-        # Write actual records as new baseline
+        # Write actual data as new baseline
         with open(baseline_file, 'w') as f:
-            json.dump(actual_records, f, indent=2)
+            json.dump(actual_data, f, indent=2, sort_keys=True)
 
         print(f"Generated baseline file: {baseline_file}")
         return
 
-    # Load expected records from JSON baseline for validation
+    # Load expected data from JSON baseline for validation
     with open(baseline_file, 'r') as f:
-        expected_records = json.load(f)
+        expected_data = json.load(f)
 
-    # Verify correct number of metrics recorded
-    assert len(mock_reporter.recorded_metrics) == len(expected_records), \
-        f"Expected {len(expected_records)} recorded metrics, got {len(mock_reporter.recorded_metrics)}"
+    # Sort expected data by metric name for consistent comparison
+    expected_data.sort(key=lambda x: x["metric"]["name"])
 
-    # Sort expected records by metric name for consistent comparison
-    expected_records.sort(key=lambda x: x["metric_name"])
+    # Deep comparison
+    assert actual_data == expected_data, \
+        f"Recorded metrics data does not match baseline for {collection_name}"
 
-    # Validate each expected record was recorded correctly
-    for i, expected in enumerate(expected_records):
-        actual = actual_records[i]
 
-        assert actual["metric_name"] == expected["metric_name"], \
-            f"Metric name mismatch at index {i}: expected {expected['metric_name']}, got {actual['metric_name']}"
+def validate_db_reporter_output(db_reporter: DBReporter):
+    """
+    Common validation function to compare DB reporter output files with expected baseline files.
 
-        assert actual["value"] == expected["value"], \
-            f"Value mismatch for {expected['metric_name']}: expected {expected['value']}, got {actual['value']}"
+    If SONIC_MGMT_GENERATE_BASELINE=1, copies the actual output files to baseline folder.
+    Otherwise, compares the output files with baseline files.
 
-        assert actual["labels"] == expected["labels"], \
-            f"Labels mismatch for {expected['metric_name']}: expected {expected['labels']}, got {actual['labels']}"
+    The baseline file path is determined from the reporter's test context.
+
+    Args:
+        db_reporter: The DB reporter that wrote output files
+    """
+    import shutil
+
+    # Get output files from reporter
+    output_files = db_reporter.get_output_files()
+    assert len(output_files) == 1, f"Expected 1 output file, got {len(output_files)}"
+
+    actual_file = output_files[0]
+
+    # Extract test file name from reporter's test context to determine baseline path
+    test_file = db_reporter.test_context.get('test.file', 'unknown')
+    if test_file.endswith('.py'):
+        test_file = test_file[:-3]  # Remove .py extension
+
+    baseline_dir = os.path.join(os.path.dirname(__file__), 'baselines', 'db_reporter')
+    baseline_file = os.path.join(baseline_dir, f'{test_file}.metrics.json')
+
+    # Check if we should generate baseline
+    if os.environ.get("SONIC_MGMT_GENERATE_BASELINE") == "1":
+        # Ensure baseline directory exists
+        os.makedirs(baseline_dir, exist_ok=True)
+
+        # Copy the actual output file to baseline
+        shutil.copy2(actual_file, baseline_file)
+        print(f"Generated DB reporter baseline file: {baseline_file}")
+        return
+
+    # Load and compare files directly (no need to normalize timestamps since we use fixed ones)
+    with open(actual_file, 'r') as f:
+        actual_output = json.load(f)
+
+    with open(baseline_file, 'r') as f:
+        expected_output = json.load(f)
+
+    # Sort records by metric_name for consistent comparison
+    def sort_records(data):
+        """Sort records by metric_name if available."""
+        if isinstance(data, dict) and "records" in data:
+            sorted_data = data.copy()
+            sorted_data["records"] = sorted(data["records"], key=lambda x: x.get("metric_name", ""))
+            return sorted_data
+        return data
+
+    sorted_actual = sort_records(actual_output)
+    sorted_expected = sort_records(expected_output)
+
+    # Deep comparison
+    assert sorted_actual == sorted_expected, \
+        f"DB reporter output does not match baseline for {test_file}"
+
+
+def validate_ts_reporter_output(ts_reporter, exported_metrics_list):
+    """
+    Common validation function to compare TS reporter OTLP output with expected baseline JSON.
+
+    If SONIC_MGMT_GENERATE_BASELINE=1, generates new baseline files from actual OTLP output.
+    Otherwise, compares the OTLP output with baseline files.
+
+    The baseline file path is determined from the reporter's test context.
+
+    Args:
+        ts_reporter: The TS reporter that exported metrics
+        exported_metrics_list: List of exported MetricsData objects from mock exporter
+    """
+    # Convert OTLP MetricsData to JSON-serializable format using recursive approach
+    def otlp_to_dict(obj):
+        """Convert OTLP objects to dictionary for JSON serialization using recursive approach."""
+        if obj is None or isinstance(obj, (str, int, float, bool)):
+            return obj
+        elif isinstance(obj, dict):
+            return {k: otlp_to_dict(v) for k, v in obj.items()}
+        elif isinstance(obj, (list, tuple)):
+            return [otlp_to_dict(item) for item in obj]
+        elif hasattr(obj, '__dict__'):
+            # If object has __dict__, only serialize the __dict__, not other attributes
+            return {k: otlp_to_dict(v) for k, v in vars(obj).items()}
+        elif hasattr(obj, '__slots__'):
+            # Handle __slots__ objects
+            return {slot: otlp_to_dict(getattr(obj, slot, None)) for slot in obj.__slots__}
+        else:
+            # Fallback: try to get public attributes
+            result = {}
+            for attr_name in dir(obj):
+                if not attr_name.startswith('_') and not callable(getattr(obj, attr_name, None)):
+                    try:
+                        result[attr_name] = otlp_to_dict(getattr(obj, attr_name))
+                    except Exception:
+                        pass
+            return result if result else str(obj)
+
+    # Convert all exported metrics to dictionaries
+    actual_data = []
+    for metrics_data in exported_metrics_list:
+        actual_data.append(otlp_to_dict(metrics_data))
+
+    # Sort data for consistent comparison (no need to normalize timestamps since we use fixed ones)
+    def sort_ts_data(data_list):
+        """Sort OTLP data for consistent comparison."""
+        sorted_data = []
+        for data in data_list:
+            sorted_data_item = json.loads(json.dumps(data))  # Deep copy
+
+            # Sort for consistent comparison
+            for resource_metrics in sorted_data_item["resource_metrics"]:
+                for scope_metrics in resource_metrics["scope_metrics"]:
+                    for metric in scope_metrics["metrics"]:
+                        # Sort data points by attributes for consistent comparison
+                        metric["data"]["data_points"].sort(key=lambda x: str(x.get("attributes", {})))
+
+                    # Sort metrics by name
+                    scope_metrics["metrics"].sort(key=lambda x: x["name"])
+
+            sorted_data.append(sorted_data_item)
+
+        return sorted_data
+
+    sorted_actual = sort_ts_data(actual_data)
+
+    # Extract test file name from reporter's test context to determine baseline path
+    test_file = ts_reporter.test_context.get('test.file', 'unknown')
+    if test_file.endswith('.py'):
+        test_file = test_file[:-3]  # Remove .py extension
+
+    baseline_dir = os.path.join(os.path.dirname(__file__), 'baselines', 'ts_reporter')
+    baseline_file = os.path.join(baseline_dir, f'{test_file}.json')
+
+    # Check if we should generate baseline
+    if os.environ.get("SONIC_MGMT_GENERATE_BASELINE") == "1":
+        # Ensure baseline directory exists
+        os.makedirs(baseline_dir, exist_ok=True)
+
+        # Write sorted data as new baseline
+        with open(baseline_file, 'w') as f:
+            json.dump(sorted_actual, f, indent=2, sort_keys=True)
+
+        print(f"Generated TS reporter baseline file: {baseline_file}")
+        return
+
+    # Load expected data from JSON baseline for validation
+    with open(baseline_file, 'r') as f:
+        expected_data = json.load(f)
+
+    # Deep comparison
+    assert sorted_actual == expected_data, \
+        f"TS reporter output does not match baseline for {test_file}"

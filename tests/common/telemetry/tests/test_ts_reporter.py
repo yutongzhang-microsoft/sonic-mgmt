@@ -17,6 +17,7 @@ from common.telemetry import (
     DevicePortMetrics
 )
 from common.telemetry.reporters.ts_reporter import TSReporter
+from .common_utils import validate_ts_reporter_output
 
 pytestmark = [
     pytest.mark.topology('any'),
@@ -56,18 +57,24 @@ class TestTSReporter:
 
     def test_no_measurements(self):
         """Test TSReporter behavior when no measurements are recorded."""
+        # Set test-specific file path
+        self.mock_request.node.fspath.strpath = "/test/path/test_no_measurements.py"
+
         # Create TSReporter with mock exporter
         ts_reporter, exported_metrics = self._create_ts_reporter_with_mock_exporter()
 
-        # Call report with no measurements
+        # Call report with no measurements using fixed timestamp
         ts_reporter.gather_all_recorded_metrics()
-        ts_reporter.report()
+        ts_reporter.report(timestamp=1234567890000000000)
 
-        # Verify no export was called
-        assert len(exported_metrics) == 0
+        # Validate against baseline (should be empty list)
+        validate_ts_reporter_output(ts_reporter, exported_metrics)
 
     def test_mock_exporter_gauge_metric(self):
         """Test TSReporter with mock exporter for GaugeMetric."""
+        # Set test-specific file path
+        self.mock_request.node.fspath.strpath = "/test/path/test_gauge_metric.py"
+
         # Create TSReporter with mock exporter
         ts_reporter, exported_metrics = self._create_ts_reporter_with_mock_exporter()
 
@@ -83,31 +90,18 @@ class TestTSReporter:
         test_labels = {"device.id": "test-dut", "test.scenario": "gauge"}
         gauge_metric.record(85.5, test_labels)
 
-        # Call report to trigger mock exporter
+        # Call report to trigger mock exporter with fixed timestamp
         ts_reporter.gather_all_recorded_metrics()
-        ts_reporter.report()
+        ts_reporter.report(timestamp=1234567890000000000)
 
-        # Verify mock exporter was called
-        assert len(exported_metrics) == 1, f"Expected 1 export call, got {len(exported_metrics)}"
-
-        # Verify the exported MetricsData structure
-        metrics_data = exported_metrics[0]
-        resource_metrics = metrics_data.resource_metrics[0]
-        self._validate_otlp_resource_structure(resource_metrics)
-        scope_metric = self._validate_otlp_scope_structure(resource_metrics, expected_metrics_count=1)
-
-        # Check metrics - should have 1 gauge metric
-        otlp_metric = scope_metric.metrics[0]
-        assert otlp_metric.name == "test.cpu.usage"
-        assert otlp_metric.description == "CPU usage percentage"
-        assert otlp_metric.unit == "percent"
-        assert hasattr(otlp_metric.data, 'data_points')
-
-        # Verify measurements were cleared
-        assert ts_reporter.recorded_metrics_count() == 0
+        # Validate against baseline
+        validate_ts_reporter_output(ts_reporter, exported_metrics)
 
     def test_mock_exporter_histogram_metric(self):
         """Test TSReporter with mock exporter for HistogramMetric."""
+        # Set test-specific file path
+        self.mock_request.node.fspath.strpath = "/test/path/test_histogram_metric.py"
+
         # Create TSReporter with mock exporter
         ts_reporter, exported_metrics = self._create_ts_reporter_with_mock_exporter()
 
@@ -124,31 +118,18 @@ class TestTSReporter:
         test_labels = {"device.id": "test-dut", "test.scenario": "histogram"}
         histogram_metric.record_bucket_counts([10, 20, 30, 40], test_labels)
 
-        # Call report to trigger mock exporter
+        # Call report to trigger mock exporter with fixed timestamp
         ts_reporter.gather_all_recorded_metrics()
-        ts_reporter.report()
+        ts_reporter.report(timestamp=1234567890000000000)
 
-        # Verify mock exporter was called
-        assert len(exported_metrics) == 1, f"Expected 1 export call, got {len(exported_metrics)}"
-
-        # Verify the exported MetricsData structure
-        metrics_data = exported_metrics[0]
-        resource_metrics = metrics_data.resource_metrics[0]
-        self._validate_otlp_resource_structure(resource_metrics)
-        scope_metric = self._validate_otlp_scope_structure(resource_metrics, expected_metrics_count=1)
-
-        # Check metrics - should have 1 histogram metric
-        otlp_metric = scope_metric.metrics[0]
-        assert otlp_metric.name == "test.response.time"
-        assert otlp_metric.description == "API response time"
-        assert otlp_metric.unit == "milliseconds"
-        assert hasattr(otlp_metric.data, 'data_points')
-
-        # Verify measurements were cleared
-        assert ts_reporter.recorded_metrics_count() == 0
+        # Validate against baseline
+        validate_ts_reporter_output(ts_reporter, exported_metrics)
 
     def test_metric_grouping(self):
         """Test that TSReporter correctly groups metrics by name and type."""
+        # Set test-specific file path
+        self.mock_request.node.fspath.strpath = "/test/path/test_metric_grouping.py"
+
         # Create TSReporter with mock exporter
         ts_reporter, exported_metrics = self._create_ts_reporter_with_mock_exporter()
 
@@ -158,24 +139,18 @@ class TestTSReporter:
         metric.record(200, {"instance": "2"})
         metric.record(300, {"instance": "3"})
 
+        # Call report with fixed timestamp
         ts_reporter.gather_all_recorded_metrics()
-        ts_reporter.report()
+        ts_reporter.report(timestamp=1234567890000000000)
 
-        # Verify grouping - should have 1 OTLP metric with 3 data points
-        metrics_data = exported_metrics[0]
-        resource_metrics = metrics_data.resource_metrics[0]
-        scope_metric = self._validate_otlp_scope_structure(resource_metrics, expected_metrics_count=1)
-
-        otlp_metric = scope_metric.metrics[0]
-        assert otlp_metric.name == "test.grouped.metric"
-        assert len(otlp_metric.data.data_points) == 3
-
-        # Verify all data points are present
-        values = [dp.value for dp in otlp_metric.data.data_points]
-        assert sorted(values) == [100.0, 200.0, 300.0]
+        # Validate against baseline
+        validate_ts_reporter_output(ts_reporter, exported_metrics)
 
     def test_periodic_reporting_simulation(self):
         """Test periodic reporting behavior like real monitoring scenario."""
+        # Set test-specific file path
+        self.mock_request.node.fspath.strpath = "/test/path/test_periodic_reporting.py"
+
         # Create TSReporter with mock exporter
         ts_reporter, exported_metrics = self._create_ts_reporter_with_mock_exporter()
 
@@ -193,15 +168,12 @@ class TestTSReporter:
             port_metrics.tx_util.record(45.2 + i * 5)
             port_metrics.rx_util.record(38.7 + i * 3)
 
-            # Report for this time period
+            # Report for this time period with fixed timestamp + iteration offset
             ts_reporter.gather_all_recorded_metrics()
-            ts_reporter.report()
+            ts_reporter.report(timestamp=1234567890000000000 + i * 60000000000)  # 60 seconds apart
 
-            # Verify incremental reporting
-            assert len(exported_metrics) == i + 1
-
-        # Verify final total
-        assert len(exported_metrics) == simulation_iterations
+        # Validate against baseline
+        validate_ts_reporter_output(ts_reporter, exported_metrics)
 
     def _create_mock_export_func(self):
         """

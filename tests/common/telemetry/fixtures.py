@@ -61,7 +61,6 @@ def db_reporter(request, tbinfo) -> Generator[DBReporter, None, None]:
     with tempfile.TemporaryDirectory(prefix="telemetry_test_") as temp_dir:
         reporter = DBReporter(
             output_dir=temp_dir,
-            file_prefix="test_telemetry",
             request=request,
             tbinfo=tbinfo
         )

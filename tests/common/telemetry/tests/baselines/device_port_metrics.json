@@ -1,98 +1,158 @@
 [
   {
-    "metric_name": "port.rx.bps",
-    "value": 1000000000,
+    "data": 1000000000,
     "labels": {
       "device.id": "spine-01",
       "device.port.id": "Ethernet8"
+    },
+    "metric": {
+      "description": "Port RX (bps)",
+      "metric_type": "gauge",
+      "name": "port.rx.bps",
+      "unit": "bps"
     }
   },
   {
-    "metric_name": "port.rx.drop",
-    "value": 8,
+    "data": 8,
     "labels": {
       "device.id": "spine-01",
       "device.port.id": "Ethernet8"
+    },
+    "metric": {
+      "description": "Port RX dropped packets",
+      "metric_type": "gauge",
+      "name": "port.rx.drop",
+      "unit": "count"
     }
   },
   {
-    "metric_name": "port.rx.err",
-    "value": 5,
+    "data": 5,
     "labels": {
       "device.id": "spine-01",
       "device.port.id": "Ethernet8"
+    },
+    "metric": {
+      "description": "Port RX error packets",
+      "metric_type": "gauge",
+      "name": "port.rx.err",
+      "unit": "count"
     }
   },
   {
-    "metric_name": "port.rx.ok",
-    "value": 10987654,
+    "data": 10987654,
     "labels": {
       "device.id": "spine-01",
       "device.port.id": "Ethernet8"
+    },
+    "metric": {
+      "description": "Port RX packets",
+      "metric_type": "gauge",
+      "name": "port.rx.ok",
+      "unit": "count"
     }
   },
   {
-    "metric_name": "port.rx.overrun",
-    "value": 1,
+    "data": 1,
     "labels": {
       "device.id": "spine-01",
       "device.port.id": "Ethernet8"
+    },
+    "metric": {
+      "description": "Port RX overrun events",
+      "metric_type": "gauge",
+      "name": "port.rx.overrun",
+      "unit": "count"
     }
   },
   {
-    "metric_name": "port.rx.util",
-    "value": 32.8,
+    "data": 32.8,
     "labels": {
       "device.id": "spine-01",
       "device.port.id": "Ethernet8"
+    },
+    "metric": {
+      "description": "Port RX util (%)",
+      "metric_type": "gauge",
+      "name": "port.rx.util",
+      "unit": "percent"
     }
   },
   {
-    "metric_name": "port.tx.bps",
-    "value": 1200000000,
+    "data": 1200000000,
     "labels": {
       "device.id": "spine-01",
       "device.port.id": "Ethernet8"
+    },
+    "metric": {
+      "description": "Port TX (bps)",
+      "metric_type": "gauge",
+      "name": "port.tx.bps",
+      "unit": "bps"
     }
   },
   {
-    "metric_name": "port.tx.drop",
-    "value": 12,
+    "data": 12,
     "labels": {
       "device.id": "spine-01",
       "device.port.id": "Ethernet8"
+    },
+    "metric": {
+      "description": "Port TX dropped packets",
+      "metric_type": "gauge",
+      "name": "port.tx.drop",
+      "unit": "count"
     }
   },
   {
-    "metric_name": "port.tx.err",
-    "value": 3,
+    "data": 3,
     "labels": {
       "device.id": "spine-01",
       "device.port.id": "Ethernet8"
+    },
+    "metric": {
+      "description": "Port TX error packets",
+      "metric_type": "gauge",
+      "name": "port.tx.err",
+      "unit": "count"
     }
   },
   {
-    "metric_name": "port.tx.ok",
-    "value": 12345678,
+    "data": 12345678,
     "labels": {
       "device.id": "spine-01",
       "device.port.id": "Ethernet8"
+    },
+    "metric": {
+      "description": "Port TX packets",
+      "metric_type": "gauge",
+      "name": "port.tx.ok",
+      "unit": "count"
     }
   },
   {
-    "metric_name": "port.tx.overrun",
-    "value": 0,
+    "data": 0,
     "labels": {
       "device.id": "spine-01",
       "device.port.id": "Ethernet8"
+    },
+    "metric": {
+      "description": "Port TX overrun events",
+      "metric_type": "gauge",
+      "name": "port.tx.overrun",
+      "unit": "count"
     }
   },
   {
-    "metric_name": "port.tx.util",
-    "value": 45.2,
+    "data": 45.2,
     "labels": {
       "device.id": "spine-01",
       "device.port.id": "Ethernet8"
+    },
+    "metric": {
+      "description": "Port TX util (%)",
+      "metric_type": "gauge",
+      "name": "port.tx.util",
+      "unit": "percent"
     }
   }
 ]
