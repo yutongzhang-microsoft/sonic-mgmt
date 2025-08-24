@@ -71,6 +71,9 @@ class DBReporter(Reporter):
             # Handle HistogramRecordData serialization
             if isinstance(record.data, HistogramRecordData):
                 data_value = record.data.to_dict()
+                # Add bucket boundaries for histogram data
+                if hasattr(record.metric, 'buckets'):
+                    data_value["buckets"] = record.metric.buckets
             else:
                 data_value = record.data
 

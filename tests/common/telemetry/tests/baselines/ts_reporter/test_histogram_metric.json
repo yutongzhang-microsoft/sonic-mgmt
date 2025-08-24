@@ -18,10 +18,7 @@
             },
             "_extended_attributes": false,
             "_immutable": true,
-            "_lock": "<unlocked _thread.RLock object owner=0 count=0 at 0x7fa336479420>",
-            "dropped": 0,
-            "max_value_len": null,
-            "maxlen": null
+            "dropped": 0
           },
           "_schema_url": ""
         },
@@ -51,10 +48,7 @@
                         100,
                         200
                       ],
-                      "max": null,
-                      "min": null,
                       "start_time_unix_nano": 1234567890000000000,
-                      "sum": null,
                       "time_unix_nano": 1234567890000000000
                     }
                   ]
@@ -70,10 +64,7 @@
                 "_dict": {},
                 "_extended_attributes": false,
                 "_immutable": true,
-                "_lock": "<unlocked _thread.RLock object owner=0 count=0 at 0x7fa336479780>",
-                "dropped": 0,
-                "max_value_len": null,
-                "maxlen": null
+                "dropped": 0
               },
               "_name": "sonic-test-telemetry",
               "_schema_url": "",

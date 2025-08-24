@@ -157,36 +157,57 @@ def validate_ts_reporter_output(ts_reporter, exported_metrics_list):
         ts_reporter: The TS reporter that exported metrics
         exported_metrics_list: List of exported MetricsData objects from mock exporter
     """
-    # Convert OTLP MetricsData to JSON-serializable format using recursive approach
-    def otlp_to_dict(obj):
-        """Convert OTLP objects to dictionary for JSON serialization using recursive approach."""
+    # Convert any object to JSON-serializable format using recursive approach
+    def obj_to_dict(obj):
+        """Convert any object to dictionary for JSON serialization.
+
+        Skips non-serializable fields by testing JSON serializability.
+        """
+        import json
+
+        # Handle primitive types
         if obj is None or isinstance(obj, (str, int, float, bool)):
             return obj
-        elif isinstance(obj, dict):
-            return {k: otlp_to_dict(v) for k, v in obj.items()}
-        elif isinstance(obj, (list, tuple)):
-            return [otlp_to_dict(item) for item in obj]
-        elif hasattr(obj, '__dict__'):
-            # If object has __dict__, only serialize the __dict__, not other attributes
-            return {k: otlp_to_dict(v) for k, v in vars(obj).items()}
-        elif hasattr(obj, '__slots__'):
-            # Handle __slots__ objects
-            return {slot: otlp_to_dict(getattr(obj, slot, None)) for slot in obj.__slots__}
-        else:
-            # Fallback: try to get public attributes
-            result = {}
-            for attr_name in dir(obj):
-                if not attr_name.startswith('_') and not callable(getattr(obj, attr_name, None)):
-                    try:
-                        result[attr_name] = otlp_to_dict(getattr(obj, attr_name))
-                    except Exception:
-                        pass
-            return result if result else str(obj)
+
+        # Test if the object can be JSON serialized as-is
+        try:
+            json.dumps(obj)
+            return obj
+        except (TypeError, ValueError):
+            pass
+
+        # Handle collections
+        if isinstance(obj, dict):
+            return {k: v for k, v in ((k, obj_to_dict(v)) for k, v in obj.items()) if v is not None}
+
+        if isinstance(obj, (list, tuple)):
+            return [item for item in (obj_to_dict(x) for x in obj) if item is not None]
+
+        # Extract key-value pairs from object
+        def get_object_items(obj):
+            """Get key-value pairs from object."""
+            if hasattr(obj, '__dict__'):
+                return vars(obj).items()
+            elif hasattr(obj, '__slots__'):
+                return ((slot, getattr(obj, slot, None)) for slot in obj.__slots__)
+            else:
+                # Fallback: get public attributes
+                return ((attr, getattr(obj, attr)) for attr in dir(obj)
+                        if not attr.startswith('_') and not callable(getattr(obj, attr, None)))
+
+        # Convert object to dict
+        result = {}
+        for k, v in get_object_items(obj):
+            serialized_value = obj_to_dict(v)
+            if serialized_value is not None:
+                result[k] = serialized_value
+
+        return result if result else None
 
     # Convert all exported metrics to dictionaries
     actual_data = []
     for metrics_data in exported_metrics_list:
-        actual_data.append(otlp_to_dict(metrics_data))
+        actual_data.append(obj_to_dict(metrics_data))
 
     # Sort data for consistent comparison (no need to normalize timestamps since we use fixed ones)
     def sort_ts_data(data_list):
