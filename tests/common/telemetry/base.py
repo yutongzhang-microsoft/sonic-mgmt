@@ -200,7 +200,7 @@ class Reporter(ABC):
         # Gather all metrics from registered metrics first
         self.gather_all_recorded_metrics()
 
-        if not self._gathered_metrics:
+        if len(self._gathered_metrics) == 0:
             return
 
         if timestamp is None:

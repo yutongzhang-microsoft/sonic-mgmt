@@ -37,9 +37,7 @@ def ts_reporter(request, tbinfo) -> Generator[TSReporter, None, None]:
     try:
         yield reporter
     finally:
-        # Ensure any pending metrics are reported before cleanup
-        if reporter.recorded_metrics_count() > 0:
-            reporter.report()
+        reporter.report()
 
 
 @pytest.fixture(scope="function")
@@ -68,6 +66,4 @@ def db_reporter(request, tbinfo) -> Generator[DBReporter, None, None]:
         try:
             yield reporter
         finally:
-            # Ensure any pending metrics are reported before cleanup
-            if reporter.recorded_metrics_count() > 0:
-                reporter.report()
+            reporter.report()

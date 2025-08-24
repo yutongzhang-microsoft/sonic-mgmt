@@ -67,7 +67,6 @@ class TestDBReporter:
         metric.record(82.3, {"device.id": "dut-01", "iteration": "2"})
 
         # Gather metrics and generate report with fixed timestamp
-        db_reporter.gather_all_recorded_metrics()
         db_reporter.report(timestamp=1234567890000000000)  # Fixed timestamp for consistent baselines
 
         # Validate against baseline
@@ -99,7 +98,6 @@ class TestDBReporter:
         histogram_metric.record_bucket_counts(response_times, {"endpoint": "/api/v1/data"})
 
         # Gather metrics and generate report with fixed timestamp
-        db_reporter.gather_all_recorded_metrics()
         db_reporter.report(timestamp=1234567890000000000)  # Fixed timestamp for consistent baselines
 
         # Validate against baseline

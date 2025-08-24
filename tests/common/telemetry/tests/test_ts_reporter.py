@@ -64,7 +64,6 @@ class TestTSReporter:
         ts_reporter, exported_metrics = self._create_ts_reporter_with_mock_exporter()
 
         # Call report with no measurements using fixed timestamp
-        ts_reporter.gather_all_recorded_metrics()
         ts_reporter.report(timestamp=1234567890000000000)
 
         # Validate against baseline (should be empty list)
@@ -91,7 +90,6 @@ class TestTSReporter:
         gauge_metric.record(85.5, test_labels)
 
         # Call report to trigger mock exporter with fixed timestamp
-        ts_reporter.gather_all_recorded_metrics()
         ts_reporter.report(timestamp=1234567890000000000)
 
         # Validate against baseline
@@ -119,7 +117,6 @@ class TestTSReporter:
         histogram_metric.record_bucket_counts([10, 20, 30, 40], test_labels)
 
         # Call report to trigger mock exporter with fixed timestamp
-        ts_reporter.gather_all_recorded_metrics()
         ts_reporter.report(timestamp=1234567890000000000)
 
         # Validate against baseline
@@ -140,7 +137,6 @@ class TestTSReporter:
         metric.record(300, {"instance": "3"})
 
         # Call report with fixed timestamp
-        ts_reporter.gather_all_recorded_metrics()
         ts_reporter.report(timestamp=1234567890000000000)
 
         # Validate against baseline
@@ -169,7 +165,6 @@ class TestTSReporter:
             port_metrics.rx_util.record(38.7 + i * 3)
 
             # Report for this time period with fixed timestamp + iteration offset
-            ts_reporter.gather_all_recorded_metrics()
             ts_reporter.report(timestamp=1234567890000000000 + i * 60000000000)  # 60 seconds apart
 
         # Validate against baseline
