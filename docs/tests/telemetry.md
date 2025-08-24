@@ -201,50 +201,35 @@ When you have a set of related metrics that you use frequently across multiple t
 ```python
 from common.telemetry import *
 
-# class MetricProxy:
-#     """Proxy wrapper for GaugeMetric that automatically applies common labels."""
-#     def __init__(self, metric, common_labels):
-#         self.metric = metric
-#         self.common_labels = common_labels
-#
-#     def record(self, value, additional_labels=None):
-#         """Record metric value with common labels automatically applied."""
-#         final_labels = {**self.common_labels, **(additional_labels or {})}
-#         self.metric.record(value, final_labels)
-
-class BGPMetrics:
-    """Custom BGP metrics fixture with 2 key metrics."""
-    def __init__(self, reporter, labels=None):
-        self.labels = labels or {}
-
-        # Create underlying GaugeMetrics
-        convergence_time_metric = GaugeMetric(
-            name=METRIC_NAME_BGP_CONVERGENCE_TIME_PORT_RESTART,  # "bgp.convergence_time.port_restart"
+class BGPMetrics(MetricCollection):
+    """Custom BGP metrics collection with 2 key metrics."""
+    
+    # Define the metrics for this collection
+    METRICS_DEFINITIONS = [
+        MetricDefinition(
+            "convergence_time",
+            metric_name=METRIC_NAME_BGP_CONVERGENCE_TIME_PORT_RESTART,  # "bgp.convergence_time.port_restart"
             description="BGP convergence time after port restart",
-            unit="seconds",
-            reporter=reporter
-        )
-        route_count_metric = GaugeMetric(
-            name="bgp.route.count",  # Custom metric for this test
+            unit=UNIT_SECONDS
+        ),
+        MetricDefinition(
+            "route_count", 
+            metric_name="bgp.route.count",
             description="Number of BGP routes learned",
-            unit="routes",
-            reporter=reporter
+            unit=UNIT_COUNT
         )
-
-        # Create proxies that automatically apply common labels
-        self.convergence_time = MetricProxy(convergence_time_metric, self.labels)
-        self.route_count = MetricProxy(route_count_metric, self.labels)
+    ]
 
 
 def test_bgp_convergence(ts_reporter):
-    """Test using custom BGP metrics class directly."""
+    """Test using custom BGP metrics collection."""
     # Common labels for all BGP metrics
     common_labels = {
         METRIC_LABEL_DEVICE_ID: "spine-01",
         "test.params.topology": "t1"
     }
 
-    # Create BGP metrics directly in the test
+    # Create BGP metrics collection - metrics are automatically created with common labels
     bgp_metrics = BGPMetrics(reporter=ts_reporter, labels=common_labels)
 
     # Additional test-specific labels
@@ -253,7 +238,7 @@ def test_bgp_convergence(ts_reporter):
         "test.params.route_count": "10000"
     }
 
-    # Record BGP convergence metrics (common labels automatically applied via proxy)
+    # Record BGP convergence metrics (common labels automatically applied)
     bgp_metrics.convergence_time.record(2.45, test_specific_labels)  # 2.45 seconds
     bgp_metrics.route_count.record(10000, test_specific_labels)      # 10k routes
 
@@ -313,11 +298,11 @@ def test_bgp_convergence(ts_reporter):
 
 ### 5.2. Test Context Configuration
 
-| Environment Variable | Purpose                                   | Default Value | Used By       |
-|----------------------|-------------------------------------------|---------------|---------------|
-| `TESTBED_NAME`       | Testbed identifier for test.testbed label | `"unknown"`   | All reporters |
-| `BUILD_VERSION`      | Build version for test.os.version label   | `"unknown"`   | All reporters |
-| `JOB_ID`             | Job identifier for test.job.id label      | `"unknown"`   | All reporters |
+| Environment Variable       | Purpose                                   | Default Value | Used By       |
+|----------------------------|-------------------------------------------|---------------|---------------|
+| `SONIC_MGMT_TESTBED_NAME`  | Testbed identifier for test.testbed label | `"unknown"`   | All reporters |
+| `SONIC_MGMT_BUILD_VERSION` | Build version for test.os.version label   | `"unknown"`   | All reporters |
+| `SONIC_MGMT_JOB_ID`        | Job identifier for test.job.id label      | `"unknown"`   | All reporters |
 
 ### 5.3. Development and Testing Configuration
 

@@ -14,7 +14,7 @@ from .constants import (
     METRIC_LABEL_TEST_TESTBED, METRIC_LABEL_TEST_OS_VERSION,
     METRIC_LABEL_TEST_TESTCASE, METRIC_LABEL_TEST_FILE,
     METRIC_LABEL_TEST_JOB_ID, METRIC_LABEL_TEST_PARAMS_PREFIX,
-    ENV_TESTBED_NAME, ENV_BUILD_VERSION, ENV_JOB_ID
+    ENV_SONIC_MGMT_TESTBED_NAME, ENV_SONIC_MGMT_BUILD_VERSION, ENV_SONIC_MGMT_JOB_ID
 )
 
 
@@ -145,10 +145,10 @@ class Reporter(ABC):
 
         # Fallback to environment variables if pytest data not available
         if not context.get(METRIC_LABEL_TEST_TESTBED):
-            context[METRIC_LABEL_TEST_TESTBED] = os.environ.get(ENV_TESTBED_NAME, 'unknown')
+            context[METRIC_LABEL_TEST_TESTBED] = os.environ.get(ENV_SONIC_MGMT_TESTBED_NAME, 'unknown')
 
-        context[METRIC_LABEL_TEST_OS_VERSION] = os.environ.get(ENV_BUILD_VERSION, 'unknown')
-        context[METRIC_LABEL_TEST_JOB_ID] = os.environ.get(ENV_JOB_ID, 'unknown')
+        context[METRIC_LABEL_TEST_OS_VERSION] = os.environ.get(ENV_SONIC_MGMT_BUILD_VERSION, 'unknown')
+        context[METRIC_LABEL_TEST_JOB_ID] = os.environ.get(ENV_SONIC_MGMT_JOB_ID, 'unknown')
 
         return context
 

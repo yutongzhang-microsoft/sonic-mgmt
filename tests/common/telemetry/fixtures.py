@@ -29,7 +29,7 @@ def ts_reporter(request, tbinfo) -> Generator[TSReporter, None, None]:
     """
     # Create TSReporter with test-specific configuration
     reporter = TSReporter(
-        endpoint=os.environ.get('OTEL_EXPORTER_OTLP_ENDPOINT'),
+        endpoint=os.environ.get('SONIC_MGMT_TS_REPORT_ENDPOINT'),
         request=request,
         tbinfo=tbinfo
     )
