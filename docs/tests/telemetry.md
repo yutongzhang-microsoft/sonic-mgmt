@@ -20,6 +20,10 @@
    1. [5.1. Reporter Configuration](#51-reporter-configuration)
    2. [5.2. Test Context Configuration](#52-test-context-configuration)
    3. [5.3. Development and Testing Configuration](#53-development-and-testing-configuration)
+6. [6. Testing](#6-testing)
+   1. [6.1. Test structure](#61-test-structure)
+   2. [6.2. Running Tests](#62-running-tests)
+   3. [Examples](#examples)
 
 ## 1. Overview
 
@@ -203,7 +207,7 @@ from common.telemetry import *
 
 class BGPMetrics(MetricCollection):
     """Custom BGP metrics collection with 2 key metrics."""
-    
+
     # Define the metrics for this collection
     METRICS_DEFINITIONS = [
         MetricDefinition(
@@ -213,7 +217,7 @@ class BGPMetrics(MetricCollection):
             unit=UNIT_SECONDS
         ),
         MetricDefinition(
-            "route_count", 
+            "route_count",
             metric_name="bgp.route.count",
             description="Number of BGP routes learned",
             unit=UNIT_COUNT
@@ -302,10 +306,64 @@ def test_bgp_convergence(ts_reporter):
 |----------------------------|-------------------------------------------|---------------|---------------|
 | `SONIC_MGMT_TESTBED_NAME`  | Testbed identifier for test.testbed label | `"unknown"`   | All reporters |
 | `SONIC_MGMT_BUILD_VERSION` | Build version for test.os.version label   | `"unknown"`   | All reporters |
-| `SONIC_MGMT_JOB_ID`        | Job identifier for test.job.id label      | `"unknown"`   | All reporters |
+| `SONIC_MGMT_JOB_ID`        | Job identifier for test.job.id label      | `0`   | All reporters |
 
 ### 5.3. Development and Testing Configuration
 
 | Environment Variable           | Purpose                                           | Default Value | Used By         |
 |--------------------------------|---------------------------------------------------|---------------|-----------------|
 | `SONIC_MGMT_GENERATE_BASELINE` | When set to `1`, generate new test baseline files | Not set       | Test validation |
+
+## 6. Testing
+
+To avoid feature regressions in the future, telemetry framework provides unit tests to validate metric output against expected baselines.
+
+### 6.1. Test structure
+
+Here is how the tests are organized:
+
+```text
+tests/common/telemetry/tests/
+├── conftest.py              # Test fixtures (mock_reporter)
+├── common_utils.py          # Shared utilities (MockReporter, validation functions)
+├── ut_*.py                  # Unit test files by component
+│   ├── ut_inbox_metrics.py  # Tests metric collections (DevicePortMetrics, etc.)
+│   ├── ut_metrics.py        # Tests individual metric classes (GaugeMetric, etc.)
+│   ├── ut_ts_reporter.py    # Tests TimeSeries reporter OTLP output
+│   └── ut_db_reporter.py    # Tests Database reporter file output
+└── baselines/               # Expected test outputs for validation
+    ├── *.json               # Metric and inbox metrics baselines
+    ├── ts_reporter/         # TS reporter OTLP baselines
+    └── db_reporter/         # DB reporter file baselines
+```
+
+**Component Isolation**: Each `ut_*.py` file tests a specific layer:
+
+- **Metrics layer**: Individual metric types.
+- **Inbox metrics layer**: All metric collections included in the telemetry framework.
+- **Reporter layer**: Metrics reporter, such as TS reporter and DB reporter, to validate E2E pipeline.
+
+**Baseline testing**: The tests uses baseline testing to ensure metric output consistency, where the generated metrics are validated against JSON baselines during the test execution using the following key validation functions:
+
+- `validate_recorded_metrics()` - For metric collections
+- `validate_ts_reporter_output()` - For OTLP format validation
+- `validate_db_reporter_output()` - For database file validation
+
+### 6.2. Running Tests
+
+In sonic-mgmt container, run the following commands:
+
+```bash
+# Enter the test folder
+cd tests/common/telemetry/tests
+
+# Run specific test file
+./run_tests.sh -i ../ansible/<any-group> -n <any-testbed> -d all -t any -m individual -a False -w -u -l debug -e "--skip_sanity --disable_loganalyzer" -c common/telemetry/tests/ut_metrics.py
+
+# Generate new baselines when adding features
+SONIC_MGMT_GENERATE_BASELINE=1 ./run_tests.sh -i ../ansible/<any-group> -n <any-testbed> -d all -t any -m individual -a False -w -u -l debug -e "--skip_sanity --disable_loganalyzer" -c common/telemetry/tests/ut_metrics.py
+```
+
+### Examples
+
+The telemetry framework also provides examples for common use cases. Please refer to files under [tests/common/telemetry/examples](../../tests/common/telemetry/examples) for detailed implementations.
