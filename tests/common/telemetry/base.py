@@ -14,7 +14,7 @@ from .constants import (
     METRIC_LABEL_TEST_TESTBED, METRIC_LABEL_TEST_OS_VERSION,
     METRIC_LABEL_TEST_TESTCASE, METRIC_LABEL_TEST_FILE,
     METRIC_LABEL_TEST_JOB_ID, METRIC_LABEL_TEST_PARAMS_PREFIX,
-    ENV_SONIC_MGMT_TESTBED_NAME, ENV_SONIC_MGMT_BUILD_VERSION, ENV_SONIC_MGMT_JOB_ID
+    ENV_SONIC_MGMT_TESTBED_NAME, ENV_SONIC_MGMT_JOB_ID
 )
 
 
@@ -103,7 +103,7 @@ class Reporter(ABC):
     to their respective backends (OpenTelemetry for TS, files for DB).
     """
 
-    def __init__(self, reporter_type: str, request=None, tbinfo=None):
+    def __init__(self, reporter_type: str, request=None, tbinfo=None, duthost=None):
         """
         Initialize reporter with type identifier.
 
@@ -113,11 +113,11 @@ class Reporter(ABC):
             tbinfo: testbed info fixture data
         """
         self.reporter_type = reporter_type
-        self.test_context = self._detect_test_context(request, tbinfo)
+        self.test_context = self._detect_test_context(request, tbinfo, duthost)
         self.registered_metrics: List['Metric'] = []
         self._gathered_metrics: List[MetricRecord] = []
 
-    def _detect_test_context(self, request=None, tbinfo=None) -> Dict[str, str]:
+    def _detect_test_context(self, request=None, tbinfo=None, duthost=None) -> Dict[str, str]:
         """
         Automatically detect test context from pytest data and tbinfo fixture.
 
