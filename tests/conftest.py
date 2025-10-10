@@ -3665,7 +3665,7 @@ def pytest_runtest_setup(item):
 
 
 @pytest.fixture
-def mock_reporter(request, tbinfo):
+def mock_reporter(request, tbinfo, duthost):
     """Provide a fresh mock reporter for each test."""
     from tests.common.telemetry.tests.common_utils import MockReporter
-    return MockReporter(request=request, tbinfo=tbinfo)
+    return MockReporter(request=request, tbinfo=tbinfo, duthost=duthost)
