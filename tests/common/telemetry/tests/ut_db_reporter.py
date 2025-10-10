@@ -36,6 +36,7 @@ class TestDBReporter:
         self.mock_request.node.callspec = Mock()
         self.mock_request.node.callspec.params = {}
         self.mock_tbinfo = {"conf-name": "vlab-testbed-01", "duts": ["dut-01"]}
+        self.mock_duthost = {"os_version": "202412"}
 
     def teardown_method(self):
         """Clean up test fixtures."""
@@ -51,7 +52,8 @@ class TestDBReporter:
         db_reporter = DBReporter(
             output_dir=self.temp_dir,
             request=self.mock_request,
-            tbinfo=self.mock_tbinfo
+            tbinfo=self.mock_tbinfo,
+            duthost = self.mock_duthost
         )
 
         # Create test metrics and record values
@@ -81,7 +83,8 @@ class TestDBReporter:
         db_reporter = DBReporter(
             output_dir=self.temp_dir,
             request=self.mock_request,
-            tbinfo=self.mock_tbinfo
+            tbinfo=self.mock_tbinfo,
+            duthost=self.mock_duthost
         )
 
         # Create histogram metric

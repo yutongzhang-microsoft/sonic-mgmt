@@ -35,13 +35,14 @@ class TestTSReporter:
         self.mock_request.node.fspath.strpath = "/test/path/test_otel.py"
         self.mock_request.node.callspec.params = {}
         self.mock_tbinfo = {"conf-name": "physical-testbed-01", "duts": ["dut-01", "dut-02"]}
+        self.mock_duthost = {"os_version": "202412"}
 
     def test_set_clear_mock_exporter(self):
         """Test setting and clearing mock exporter."""
         mock_exporter_func, _ = self._create_mock_export_func()
 
         # Create TSReporter
-        ts_reporter = TSReporter(request=self.mock_request, tbinfo=self.mock_tbinfo)
+        ts_reporter = TSReporter(request=self.mock_request, tbinfo=self.mock_tbinfo, duthost=self.mock_duthost)
 
         # Initially no mock exporter
         assert ts_reporter.mock_exporter is None
@@ -220,10 +221,11 @@ class TestTSReporter:
             ts_reporter = TSReporter(
                 resource_attributes=resource_attributes,
                 request=self.mock_request,
-                tbinfo=self.mock_tbinfo
+                tbinfo=self.mock_tbinfo,
+                duthost=self.mock_duthost
             )
         else:
-            ts_reporter = TSReporter(request=self.mock_request, tbinfo=self.mock_tbinfo)
+            ts_reporter = TSReporter(request=self.mock_request, tbinfo=self.mock_tbinfo, duthost=self.mock_duthost)
 
         ts_reporter.set_mock_exporter(mock_exporter_func)
 
