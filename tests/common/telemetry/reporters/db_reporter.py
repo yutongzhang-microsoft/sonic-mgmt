@@ -22,7 +22,7 @@ class DBReporter(Reporter):
     to databases for long-term storage, trend analysis, and reporting.
     """
 
-    def __init__(self, output_dir: Optional[str] = None, request=None, tbinfo=None, duthost=None):
+    def __init__(self, output_dir: Optional[str] = None, request=None, tbinfo=None, duthosts=None):
         """
         Initialize DB reporter with file output configuration.
 
@@ -31,7 +31,7 @@ class DBReporter(Reporter):
             request: pytest request object for test context
             tbinfo: testbed info fixture data
         """
-        super().__init__(REPORTER_TYPE_DB, request, tbinfo, duthost)
+        super().__init__(REPORTER_TYPE_DB, request, tbinfo, duthosts)
         self.output_dir = output_dir or os.getcwd()
 
         # Ensure output directory exists

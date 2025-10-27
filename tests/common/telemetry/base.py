@@ -103,7 +103,7 @@ class Reporter(ABC):
     to their respective backends (OpenTelemetry for TS, files for DB).
     """
 
-    def __init__(self, reporter_type: str, request=None, tbinfo=None, duthost=None):
+    def __init__(self, reporter_type: str, request=None, tbinfo=None, duthosts=None):
         """
         Initialize reporter with type identifier.
 
@@ -113,11 +113,11 @@ class Reporter(ABC):
             tbinfo: testbed info fixture data
         """
         self.reporter_type = reporter_type
-        self.test_context = self._detect_test_context(request, tbinfo, duthost)
+        self.test_context = self._detect_test_context(request, tbinfo, duthosts)
         self.registered_metrics: List['Metric'] = []
         self._gathered_metrics: List[MetricRecord] = []
 
-    def _detect_test_context(self, request=None, tbinfo=None, duthost=None) -> Dict[str, str]:
+    def _detect_test_context(self, request=None, tbinfo=None, duthosts=None) -> Dict[str, str]:
         """
         Automatically detect test context from pytest data and tbinfo fixture.
 
@@ -147,7 +147,8 @@ class Reporter(ABC):
         if not context.get(METRIC_LABEL_TEST_TESTBED):
             context[METRIC_LABEL_TEST_TESTBED] = os.environ.get(ENV_SONIC_MGMT_TESTBED_NAME, 'unknown')
 
-        context[METRIC_LABEL_TEST_OS_VERSION] = duthost.os_version
+        dut = duthosts[0]
+        context[METRIC_LABEL_TEST_OS_VERSION] = dut.os_version
         context[METRIC_LABEL_TEST_JOB_ID] = os.environ.get(ENV_SONIC_MGMT_JOB_ID, 'unknown')
 
         return context

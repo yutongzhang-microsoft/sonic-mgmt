@@ -41,7 +41,7 @@ class TSReporter(Reporter):
     """
 
     def __init__(self, endpoint: Optional[str] = None, headers: Optional[Dict[str, str]] = None,
-                 request=None, tbinfo=None, duthost=None):
+                 request=None, tbinfo=None, duthosts=None):
         """
         Initialize TS reporter with OTLP exporter.
 
@@ -51,7 +51,7 @@ class TSReporter(Reporter):
             request: pytest request object for test context
             tbinfo: testbed info fixture data
         """
-        super().__init__(REPORTER_TYPE_TS, request, tbinfo, duthost)
+        super().__init__(REPORTER_TYPE_TS, request, tbinfo, duthosts)
 
         # Configuration
         self.endpoint = endpoint or os.environ.get(ENV_SONIC_MGMT_TS_REPORT_ENDPOINT, 'http://localhost:4317')

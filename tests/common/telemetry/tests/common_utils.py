@@ -15,8 +15,8 @@ from common.telemetry.reporters.db_reporter import DBReporter
 class MockReporter(Reporter):
     """Mock reporter that logs all metrics for testing."""
 
-    def __init__(self, request=None, tbinfo=None, duthost=None):
-        super().__init__("mock", request, tbinfo, duthost)
+    def __init__(self, request=None, tbinfo=None, duthosts=None):
+        super().__init__("mock", request, tbinfo, duthosts)
         self.report_called = False
 
     def _report(self, timestamp: float):

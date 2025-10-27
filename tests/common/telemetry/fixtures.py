@@ -13,7 +13,7 @@ from .reporters import TSReporter, DBReporter
 
 
 @pytest.fixture(scope="function")
-def ts_reporter(request, tbinfo, duthost) -> Generator[TSReporter, None, None]:
+def ts_reporter(request, tbinfo, duthosts) -> Generator[TSReporter, None, None]:
     """
     Pytest fixture providing a TSReporter instance for real-time monitoring.
 
@@ -23,7 +23,7 @@ def ts_reporter(request, tbinfo, duthost) -> Generator[TSReporter, None, None]:
     Args:
         request: pytest request object for test context
         tbinfo: testbed info fixture data
-        duthost: dut fixture data
+        duthosts: dut fixture data
 
     Yields:
         TSReporter: Configured reporter instance for OpenTelemetry metrics
@@ -33,7 +33,7 @@ def ts_reporter(request, tbinfo, duthost) -> Generator[TSReporter, None, None]:
         endpoint=os.environ.get('SONIC_MGMT_TS_REPORT_ENDPOINT'),
         request=request,
         tbinfo=tbinfo,
-        duthost=duthost
+        duthosts=duthosts
     )
 
     try:
@@ -43,7 +43,7 @@ def ts_reporter(request, tbinfo, duthost) -> Generator[TSReporter, None, None]:
 
 
 @pytest.fixture(scope="function")
-def db_reporter(request, tbinfo, duthost) -> Generator[DBReporter, None, None]:
+def db_reporter(request, tbinfo, duthosts) -> Generator[DBReporter, None, None]:
     """
     Pytest fixture providing a DBReporter instance for historical analysis.
 
@@ -53,7 +53,7 @@ def db_reporter(request, tbinfo, duthost) -> Generator[DBReporter, None, None]:
     Args:
         request: pytest request object for test context
         tbinfo: testbed info fixture data
-        duthost: dut fixture data
+        duthosts: dut fixture data
 
     Yields:
         DBReporter: Configured reporter instance for database export
@@ -64,7 +64,7 @@ def db_reporter(request, tbinfo, duthost) -> Generator[DBReporter, None, None]:
             output_dir=temp_dir,
             request=request,
             tbinfo=tbinfo,
-            duthost=duthost
+            duthosts=duthosts
         )
 
         try:

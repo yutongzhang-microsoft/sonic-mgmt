@@ -42,7 +42,7 @@ class TestTSReporter:
         mock_exporter_func, _ = self._create_mock_export_func()
 
         # Create TSReporter
-        ts_reporter = TSReporter(request=self.mock_request, tbinfo=self.mock_tbinfo, duthost=self.mock_duthost)
+        ts_reporter = TSReporter(request=self.mock_request, tbinfo=self.mock_tbinfo, duthosts=self.mock_duthost)
 
         # Initially no mock exporter
         assert ts_reporter.mock_exporter is None
@@ -222,10 +222,10 @@ class TestTSReporter:
                 resource_attributes=resource_attributes,
                 request=self.mock_request,
                 tbinfo=self.mock_tbinfo,
-                duthost=self.mock_duthost
+                duthosts=self.mock_duthost
             )
         else:
-            ts_reporter = TSReporter(request=self.mock_request, tbinfo=self.mock_tbinfo, duthost=self.mock_duthost)
+            ts_reporter = TSReporter(request=self.mock_request, tbinfo=self.mock_tbinfo, duthosts=self.mock_duthost)
 
         ts_reporter.set_mock_exporter(mock_exporter_func)
 

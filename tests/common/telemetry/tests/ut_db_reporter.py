@@ -53,7 +53,7 @@ class TestDBReporter:
             output_dir=self.temp_dir,
             request=self.mock_request,
             tbinfo=self.mock_tbinfo,
-            duthost = self.mock_duthost
+            duthosts = self.mock_duthost
         )
 
         # Create test metrics and record values
@@ -84,7 +84,7 @@ class TestDBReporter:
             output_dir=self.temp_dir,
             request=self.mock_request,
             tbinfo=self.mock_tbinfo,
-            duthost=self.mock_duthost
+            duthosts=self.mock_duthost
         )
 
         # Create histogram metric
