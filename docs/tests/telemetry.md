@@ -24,6 +24,9 @@
    1. [6.1. Test structure](#61-test-structure)
    2. [6.2. Running Tests](#62-running-tests)
    3. [Examples](#examples)
+7. [7. Data collection](#7-data-collection)
+   1. [7.1. Setup collection environment](#71-setup-collection-environment)
+   2. [7.2. Verify Data Collection](#72-setup-collection-environment)
 
 ## 1. Overview
 
@@ -367,3 +370,80 @@ SONIC_MGMT_GENERATE_BASELINE=1 ./run_tests.sh -i ../ansible/<any-group> -n <any-
 ### Examples
 
 The telemetry framework also provides examples for common use cases. Please refer to files under [tests/common/telemetry/examples](../../tests/common/telemetry/examples) for detailed implementations.
+
+
+## 7. Data collection
+The previous section introduced the OTLP exporter. In this section, we will set up the OTLP Collector to receive and process telemetry data.
+
+### 7.1. Setup collection environment
+We use the OpenTelemetry Collector — the official component provided by the OpenTelemetry project — to collect, process, and export telemetry data (metrics, traces, and logs) from various services.
+
+#### Deployment
+We use the official docker image
+```buildoutcfg
+docker pull otel/opentelemetry-collector:latest
+```
+
+To start the collector:
+```buildoutcfg
+docker run -d --name <otlp-collector> -v /data/otel-config.yaml:/etc/otel/config.yaml -p 4317:4317 -p 4318:4318 otel/opentelemetry-collector:latest --config /etc/otel/config.yaml
+```
+
+#### Configuration
+The collector is configured using a YAML file(config.yaml).
+It typically defines three core components:
++ Receivers — where telemetry data comes from (e.g., OTLP)
++ Processors — how the data is filtered, batched, or transformed
++ Exporters — where data is sent, e.g., Prometheus, Grafana)
+
+Example minimal config:
+```buildoutcfg
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+exporters:
+  prometheusremotewrite:
+    endpoint: "http://<ip>:9090/api/v1/write"
+
+  debug: {}
+
+service:
+  pipelines:
+    metrics:
+      receivers: [otlp]
+      exporters: [debug]
+    traces:
+      receivers: [otlp]
+      exporters: [debug]
+```
+This configuration:
++ Listens for OTLP data on ports 4317 (gRPC) and 4318 (HTTP)
++ Forwards metrics to a Prometheus Remote Write endpoint (<ip>:9090)
++ Prints debug logs for visibility
+
+#### Debugging
+If the collector starts successfully, you will see logs similar to:
+```buildoutcfg
+2025-10-29T07:49:02.593Z        info    service@v0.138.0/service.go:222 Starting otelcol...     {"resource": {"service.instance.id": "f1771082-fab6-4ede-b2ae-3a2fce2b7945", "service.name": "otelcol", "service.version": "0.138.0"}, "Version": "0.138.0", "NumCPU": 104}
+2025-10-29T07:49:02.593Z        info    extensions/extensions.go:41     Starting extensions...  {"resource": {"service.instance.id": "f1771082-fab6-4ede-b2ae-3a2fce2b7945", "service.name": "otelcol", "service.version": "0.138.0"}}
+2025-10-29T07:49:02.593Z        info    otlpreceiver@v0.138.0/otlp.go:121       Starting GRPC server    {"resource": {"service.instance.id": "f1771082-fab6-4ede-b2ae-3a2fce2b7945", "service.name": "otelcol", "service.version": "0.138.0"}, "otelcol.component.id": "otlp", "otelcol.component.kind": "receiver", "endpoint": "[::]:4317"}
+2025-10-29T07:49:02.593Z        info    otlpreceiver@v0.138.0/otlp.go:179       Starting HTTP server    {"resource": {"service.instance.id": "f1771082-fab6-4ede-b2ae-3a2fce2b7945", "service.name": "otelcol", "service.version": "0.138.0"}, "otelcol.component.id": "otlp", "otelcol.component.kind": "receiver", "endpoint": "[::]:4318"}
+2025-10-29T07:49:02.593Z        info    service@v0.138.0/service.go:245 Everything is ready. Begin running and processing data. {"resource": {"service.instance.id": "f1771082-fab6-4ede-b2ae-3a2fce2b7945", "service.name": "otelcol", "service.version": "0.138.0"}}
+```
+
+### 7.2. Verify Data Collection
+To verify that the collector is receiving and processing telemetry data correctly, check the container logs:
+```buildoutcfg
+docker logs <otlp-collector>
+```
+
+Example successful output:
+```buildoutcfg
+2025-10-29T08:23:57.516Z        info    Metrics {"resource": {"service.instance.id": "f1771082-fab6-4ede-b2ae-3a2fce2b7945", "service.name": "otelcol", "service.version": "0.138.0"}, "otelcol.component.id": "debug", "otelcol.component.kind": "exporter", "otelcol.signal": "metrics", "resource metrics": 1, "metrics": 4, "data points": 4}
+```
+If you see entries like this, the OTLP Collector is successfully receiving and exporting data.
