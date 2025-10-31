@@ -24,7 +24,13 @@
    1. [6.1. Test structure](#61-test-structure)
    2. [6.2. Running Tests](#62-running-tests)
    3. [Examples](#examples)
-
+7. [7. OTLP Data collection](#7-otlp-data-collection)
+   1. [7.1. Setup collection environment](#71-setup-collection-environment)
+   2. [7.2. Verify Data Collection](#72-verify-data-collection)
+8. [8. Prometheus Data exportation](#8-prometheus-data-exportation)
+   1. [8.1. Setup exportation environment](#81-setup-exportation-environment)
+   2. [8.2. Verify Data Exportation](#82-verify-data-exportation)
+   
 ## 1. Overview
 
 A comprehensive telemetry data collection and reporting framework for SONiC test infrastructure, designed to emit metrics for real-time monitoring and historical analysis.
@@ -367,3 +373,116 @@ SONIC_MGMT_GENERATE_BASELINE=1 ./run_tests.sh -i ../ansible/<any-group> -n <any-
 ### Examples
 
 The telemetry framework also provides examples for common use cases. Please refer to files under [tests/common/telemetry/examples](../../tests/common/telemetry/examples) for detailed implementations.
+
+
+## 7. OTLP Data collection
+The previous section introduced the OTLP exporter. In this section, we will set up the OTLP Collector to receive and process telemetry data.
+
+### 7.1. Setup collection environment
+We use the OpenTelemetry Collector — the official component provided by the OpenTelemetry project — to collect, process, and export telemetry data (metrics, traces, and logs) from various services.
+
+#### Deployment
+We use the official docker image
+```buildoutcfg
+docker pull otel/opentelemetry-collector:latest
+```
+
+To start the collector:
+```buildoutcfg
+docker run -d --name <otlp-collector> -v /data/otel-config.yaml:/etc/otel/config.yaml -p 4317:4317 -p 4318:4318 -p 9464:9464 otel/opentelemetry-collector:latest --config /etc/otel/config.yaml
+```
+Note:
+
+The file path ```/data/otel-config.yaml``` refers to a configuration file on your local host (outside the container).
+Make sure this path exists and contains your valid collector configuration, or replace it with the correct location of your own ```config.yaml```.
+
+#### Configuration
+The collector is configured using a YAML file(config.yaml).
+It typically defines three core components:
++ Receivers — where telemetry data comes from (e.g., OTLP)
++ Processors — how the data is filtered, batched, or transformed
++ Exporters — where data is sent, e.g., Prometheus, Grafana)
+
+Example minimal config:
+```buildoutcfg
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+exporters:
+  prometheus:
+    endpoint: "0.0.0.0:9464"
+
+  debug: {}
+
+service:
+  pipelines:
+    metrics:
+      receivers: [otlp]
+      exporters: [debug, prometheus]
+    traces:
+      receivers: [otlp]
+      exporters: [debug]
+```
+This configuration:
++ Listens for OTLP data on ports 4317 (gRPC) and 4318 (HTTP)
++ Forwards metrics to a Prometheus Remote Write endpoint (<ip>:9090)
++ Prints debug logs for visibility
+
+#### Debugging
+If the collector starts successfully, you will see logs similar to:
+```buildoutcfg
+2025-10-29T07:49:02.593Z        info    service@v0.138.0/service.go:222 Starting otelcol...     {"resource": {"service.instance.id": "f1771082-fab6-4ede-b2ae-3a2fce2b7945", "service.name": "otelcol", "service.version": "0.138.0"}, "Version": "0.138.0", "NumCPU": 104}
+2025-10-29T07:49:02.593Z        info    extensions/extensions.go:41     Starting extensions...  {"resource": {"service.instance.id": "f1771082-fab6-4ede-b2ae-3a2fce2b7945", "service.name": "otelcol", "service.version": "0.138.0"}}
+2025-10-29T07:49:02.593Z        info    otlpreceiver@v0.138.0/otlp.go:121       Starting GRPC server    {"resource": {"service.instance.id": "f1771082-fab6-4ede-b2ae-3a2fce2b7945", "service.name": "otelcol", "service.version": "0.138.0"}, "otelcol.component.id": "otlp", "otelcol.component.kind": "receiver", "endpoint": "[::]:4317"}
+2025-10-29T07:49:02.593Z        info    otlpreceiver@v0.138.0/otlp.go:179       Starting HTTP server    {"resource": {"service.instance.id": "f1771082-fab6-4ede-b2ae-3a2fce2b7945", "service.name": "otelcol", "service.version": "0.138.0"}, "otelcol.component.id": "otlp", "otelcol.component.kind": "receiver", "endpoint": "[::]:4318"}
+2025-10-29T07:49:02.593Z        info    service@v0.138.0/service.go:245 Everything is ready. Begin running and processing data. {"resource": {"service.instance.id": "f1771082-fab6-4ede-b2ae-3a2fce2b7945", "service.name": "otelcol", "service.version": "0.138.0"}}
+```
+
+### 7.2. Verify Data Collection
+To verify that the collector is receiving and processing telemetry data correctly, check the container logs:
+```buildoutcfg
+docker logs <otlp-collector>
+```
+
+Example successful output:
+```buildoutcfg
+2025-10-29T08:23:57.516Z        info    Metrics {"resource": {"service.instance.id": "f1771082-fab6-4ede-b2ae-3a2fce2b7945", "service.name": "otelcol", "service.version": "0.138.0"}, "otelcol.component.id": "debug", "otelcol.component.kind": "exporter", "otelcol.signal": "metrics", "resource metrics": 1, "metrics": 4, "data points": 4}
+```
+If you see entries like this, the OTLP Collector is successfully receiving and exporting data.
+
+### 8. Prometheus Data exportation
+After setting up the OTLP Collector, the next step is to make sure that Prometheus can successfully scrape or receive the telemetry data exported by the collector.
+There are two common integration methods depending on how Prometheus is configured in your environment:
++ Scrape-based integration (pull model) — Prometheus periodically pulls metrics from the collector’s exposed /metrics endpoint.
++ Remote Write-based integration (push model) — The collector pushes metrics directly to a Prometheus-compatible remote endpoint.
+
+### 8.1. Setup exportation environment
+We choose the first model. In this mode, Prometheus fetches metrics directly from the OTLP Collector’s Prometheus exporter endpoint (typically :9464).
+
+#### Configuration
+Edit your ```prometheus.yml``` (usually located in /etc/prometheus/prometheus.yml) and add the following section:
+```buildoutcfg
+scrape_configs:
+  - job_name: 'otel-collector'
+
+    scrape_interval: 5s
+    scrape_timeout: 5s
+
+    static_configs:
+      - targets: ['<otlp-collector-host-ip>:9464']
+```
+Replace <otlp-collector-host-ip> with the IP address of the machine where the OTLP collector is running.
+
++ job_name: Logical label for the target job (shown in Prometheus UI).
++ scrape_interval: Frequency at which Prometheus collects metrics.
++ targets: List of endpoints exposing/metrics data — in this case, the OTLP Collector’s Prometheus exporter.
+
+### 8.2. Verify Data Exportation
++ Visit your Prometheus web UI (e.g., http://<prometheus-server>:9090/classic/targets).
++ You should see a target named otel-collector listed as UP.
++ If successful, you can query example metrics in http://<prometheus-server>:9090/classic/graph
