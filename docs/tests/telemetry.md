@@ -26,7 +26,7 @@
    3. [Examples](#examples)
 7. [7. Data collection](#7-data-collection)
    1. [7.1. Setup collection environment](#71-setup-collection-environment)
-   2. [7.2. Verify Data Collection](#72-setup-collection-environment)
+   2. [7.2. Verify Data Collection](#72-verify-data-collection)
 
 ## 1. Overview
 
@@ -388,6 +388,10 @@ To start the collector:
 ```buildoutcfg
 docker run -d --name <otlp-collector> -v /data/otel-config.yaml:/etc/otel/config.yaml -p 4317:4317 -p 4318:4318 otel/opentelemetry-collector:latest --config /etc/otel/config.yaml
 ```
+Note:
+
+The file path ```/data/otel-config.yaml``` refers to a configuration file on your local host (outside the container).
+Make sure this path exists and contains your valid collector configuration, or replace it with the correct location of your own ```config.yaml```.
 
 #### Configuration
 The collector is configured using a YAML file(config.yaml).
