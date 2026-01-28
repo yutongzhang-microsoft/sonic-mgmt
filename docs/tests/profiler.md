@@ -39,7 +39,19 @@ Diagram:
 +------------------+
 ```
 Component Details:
++ eBPF Profiler
+   + Performs kernel-level CPU sampling
+   + Emits profiling data via OTLP
++ OpenTelemetry Collector
+  + Receives profiling data from eBPF agent
+  + Applies optional processing (filtering, batching)
+  + Forwards profiles to Pyroscope
++ Pyroscope
+  + Stores profiling data
+  + Provides flame graph visualization
+  + Enables interactive performance analysis
 
+The framework follows OpenTelemetry profiling semantic conventions and uses OTLP as the transport protocol. This allows future integration with additional OTEL-compatible backends and tooling.
 
 ## 3. Data observation 
 
