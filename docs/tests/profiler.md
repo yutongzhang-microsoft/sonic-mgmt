@@ -1,20 +1,42 @@
-# SONiC OTEL-based Profiler Framework
+# Azure Profiler Device-Level Performance Analysis
 
 1. [1. Overview](#1-overview)
 2. [2. Architecture Overview](#2-architecture-overview)
-   1. [2.1. OpenTelemetry Compatiable](#21-opentelemetry-compatiable)
-3. [3. Data observation ](#3-data-observation)
-   1. [3.1. Emitting inbox metrics](#31-emitting-inbox-metrics)
-4. [4. Deployment Model](#4-deployment-model)
-   1. [4.1. Common Metrics](#41-common-metrics)
+3. [3. Azure Profiler Container Design](#3-azure-profiler-container-design)
+   1. [3.1. Why use a container](#31-why-use-a-container)
+   2. [3.2. Container responsibilities](#32-container-responsibilities)
+4. [4. Usage](#4-usage)
+5. [5. Observing and Analyzing Profiling Data](#5-observing-and-analyzing-profiling-data)
+   1. [5.1. Data collection and aggregation](#51-data-collection-and-aggregation)
+   2. [5.2. Visualization](#52-visualization)
+   3. [5.3. Querying via Kusto](#53-querying-via-kusto)
 
 ## 1. Overview
-To better understand device-level performance behavior, such as how messages are processed across different threads or services, and where performance hotspots or bottlenecks occur, we aim to build a profiling dashboard that visualizes CPU execution paths in a perf flame graph–like format. \
-Traditional perf-based profiling, however, often depends on language or runtime-specific support, which may not be available in all environments. To address this limitation, we require an alternative approach that does not rely on application-level instrumentation. \
-After evaluation, we identified the OpenTelemetry profiling agent [ebpf-profiler](https://github.com/open-telemetry/opentelemetry-ebpf-profiler) as a suitable replacement for perf, providing similar profiling capabilities in a language-agnostic manner. We therefore use this agent to collect device-level profiling data. \
-For data collection and visualization, we leverage OpenTelemetry-provided components, including [opentelemetry-collector-contrib](https://github.com/open-telemetry/opentelemetry-collector-contrib) for profile ingestion and processing, and [Pyroscope](https://github.com/grafana/pyroscope) for flame graph visualization.
+To better understand device-level performance behavior, such as how messages are processed across different threads or services, and where performance hotspots or bottlenecks occur, we aim to build a profiling dashboard that visualizes CPU execution paths in a perf flame graph–like format.
+
+Traditional perf-based profiling often depends on language- or runtime-specific support, which may not be available in all environments. To address this limitation, we require an alternative approach that does not rely on application-level instrumentation.
+
+After evaluation, we adopt [Azure Profiler](https://eng.ms/docs/products/azure-profiler/home/azure-profiler) as the profiling solution. Azure Profiler provides insights into what’s running on machines during both normal execution and abnormal or trigger-based scenarios. It is a distributed sampling profiler designed for low-impact profiling in production environments, using a statistical approach to analyze service behavior.
+
+The centralized backend service aggregates profiling data on a daily basis, provides built-in performance insights, publishes data to Kusto, and supports direct integration for further analysis and visualization.
+
 
 ## 2. Architecture Overview
+The profiling solution consists of the following components:
+
++ Target machine / device \
+The physical or virtual machine where performance analysis is required.
+
++ Azure Profiler container \
+A dedicated docker container running Azure Profiler, responsible for collecting CPU samples from the host system.
+
++ Azure Profiler backend \
+A centralized service that aggregates, processes, and stores profiling data.
+
++ Visualization & analysis layer
+Profiling data can be queried from Kusto and visualized in flame graph–like views to identify hotspots and bottlenecks.
+
+<!-- 
 Diagram:
 ```buildoutcfg
 +------------------+
@@ -52,14 +74,44 @@ Component Details:
   + Enables interactive performance analysis
 
 The framework follows OpenTelemetry profiling semantic conventions and uses OTLP as the transport protocol. This allows future integration with additional OTEL-compatible backends and tooling.
+-->
 
-## 3. Data observation 
+## 3. Azure Profiler Container Design
+To ensure isolation, portability, and ease of deployment, Azure Profiler is executed inside a dedicated docker container.
 
-## 4. Deployment Model
+### 3.1 Why use a container
++ Avoids polluting the host system with additional dependencies.
++ Provides a consistent runtime environment across different machines.
++ Simplifies deployment and lifecycle management.
 
-## 5. Azure Profiler
+### 3.2 Container responsibilities
+The Azure Profiler container is responsible for:
++ Installing required system dependencies.
++ Running the Azure Profiler binary.
++ Collecting CPU execution samples from the host.
++ Uploading profiling data to the Azure Profiler backend.
 
-### 1. Install necessary packages
+## 4. Usage
+
+## 5. Observing and Analyzing Profiling Data
+### 5.1 Data collection and aggregation
++ Azure Profiler continuously samples CPU execution stacks during runtime.
++ Samples are uploaded to the centralized backend service.
++ Profiling data is aggregated per machine, per role, and per day.
+
+### 5.2 Visualization
++ Profiling results can be visualized as flame graph–like CPU execution paths.
++ Hot functions, services, or threads appear as wider blocks, indicating higher CPU consumption.
++ This helps identify:
+  + Performance hotspots
+  + CPU-intensive services or threads
+  + Unexpected execution paths
+
+### 5.3 Querying via Kusto
++ Profiling data is published to Kusto.
+
+
+<!-- ### 1. Install necessary packages
 ```buildoutcfg
 sudo vim /etc/apt/sources.list
 deb http://archive.debian.org/debian buster main
@@ -112,3 +164,4 @@ Use kusto query and check the field ViewerUrl
 cluster('azureprofilerfollower.westus2.kusto.windows.net').database('azureprofiler').Identifiers 
 | where Topic contains "SonicTest"
 ```
+-->
